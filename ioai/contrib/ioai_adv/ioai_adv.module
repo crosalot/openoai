@@ -1,0 +1,88 @@
+<?php
+
+function ioai_adv_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'ioai_global_settings_form') {
+    $form['adv'] = array(
+      '#title' => 'Advance',
+      '#type' => 'fieldset',
+      '#collapsible' => TRUE, 
+    );
+    $form['adv']['deletedRecord'] = array(
+      '#title' => 'Deleted Record',
+      '#type' => 'radios',
+      '#options' => array('no' => 'no', 'persistent' => 'persistent', 'transient' => 'transient'),
+      '#default_value' => variable_get('deletedRecord', 'persistent'), 
+    );
+    $form['adv']['earliestDatestamp'] = array(
+      '#title' => 'Earliest Datestamp',
+      '#type' => 'textfield',
+      '#default_value' => variable_get('earliestDatestamp', '2000-01-01T00:00:00Z'), 
+    );
+    $form['adv']['charset'] = array(
+      '#title' => 'Char Set',
+      '#type' => 'textfield',
+      '#default_value' => variable_get('charset', 'utf-8'),
+    );
+    $form['adv']['MAXRECORDS'] = array(
+      '#title' => 'Records per page',
+      '#type' => 'textfield',
+      '#default_value' => variable_get('MAXRECORDS', 50), 
+    );
+    $form['adv']['MAXIDS'] = array(
+      '#title' => 'Indentifiers per page',
+      '#type' => 'textfield',
+      '#default_value' => variable_get('MAXIDS', 200), 
+    );
+    $form['adv']['tokenValid'] = array(
+      '#title' => 'Token Validate Hours',
+      '#type' => 'textfield',
+      '#default_value' => variable_get('tokenValid', 24),
+    );
+
+    $form['adv']['url_fields'] = array(
+      '#title' => 'Generate URL fields',
+      '#type' => 'checkboxes',
+      '#options' => ioai_fields_list(),
+      '#default_value' => variable_get('url_fields', array()),
+    );
+    $buttons = $form['buttons'];
+    unset($form['buttons']);
+    $form['buttons'] = $buttons;
+    
+  }
+}
+
+function ioai_fields_list() {
+  $fields = content_fields();
+  $field_types = _content_field_types();
+
+  // Sort fields by field name.
+  ksort($fields);
+
+  $header = array(t('Field name'), t('Field type'), t('Used in'));
+  $rows = array();
+  foreach ($fields as $field) {
+    $row = array();
+    $row[] = $field['locked'] ? t('@field_name (Locked)', array('@field_name' => $field['field_name'])) : $field['field_name'];
+    $row[] = t($field_types[$field['type']]['label']);
+
+    $types = array();
+    $result = db_query("SELECT nt.name, nt.type FROM {". content_instance_tablename() ."} nfi ".
+    "LEFT JOIN {node_type} nt ON nt.type = nfi.type_name ".
+    "WHERE nfi.field_name = '%s' ".
+    // Keep disabled modules out of table.
+    "AND nfi.widget_active = 1 ".
+    "ORDER BY nt.name ASC", $field['field_name']);
+    while ($type = db_fetch_array($result)) {
+      $content_type = content_types($type['type']);
+      $types[] = l($type['name'], 'admin/content/node-type/'. $content_type['url_str'] .'/fields');
+    }
+    $row[] = implode(', ', $types);
+    $key = 'field:'.$row[0];
+    $row = implode(' --- ', $row);
+
+    $rows[$key] = $row;
+  }
+
+  return $rows;
+}

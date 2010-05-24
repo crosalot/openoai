@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * Implementation of hook_schema().
+ */
+function ioai_schema() {
+	$schema['ioai_map'] = array(
+		'fields' => array(
+      'oai_field' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE),
+      'content_field' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+    ),
+    'primary key' => array('oai_field', 'content_field', 'type'),
+	);
+	$schema['ioai_node'] = array(
+		'fields' => array(
+		  'nid' => array('type' => 'int', 'unsign' => TRUE, 'not null' => TRUE),
+      'datestamp' => array('type' => 'int', 'not null' => TRUE),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'status' => array('type' => 'int'),
+      'sets' => array('type' => 'varchar', 'length' => 255),
+    ),
+    'primary key' => array('nid'),
+	);
+	$schema['ioai_token'] = array(
+		'fields' => array(
+		  'tid' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'data' => array('type' => 'varchar', 'length' => 255),
+      'expiration' => array('type' => 'int', 'not null' => TRUE),
+    ),
+    'primary key' => array('tid'),
+	);
+	return $schema;
+}
+
+function ioai_install() {
+	drupal_install_schema('ioai');
+}
+
+function ioai_uninstall() {
+	drupal_uninstall_schema('ioai');
+}

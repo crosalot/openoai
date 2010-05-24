@@ -1,0 +1,508 @@
+<?php
+/**
+ * Prepare environtents
+ */
+
+// Add global variables
+
+include 'oai2/globalvars.php';
+$ioai_mpath = drupal_get_path('module', 'ioai');
+
+require_once('oai2/oaidp-config.php');
+require_once('oai2/oaidp-util.php');
+
+// in case register_globals is on, clean up polluted global scope
+$verbs = array ('from', 'identifier', 'metadataPrefix', 'set', 'resumptionToken', 'until');
+foreach($verbs as $val) {
+	unset($$val);
+}
+
+
+/**
+ * Implementation of hook_perm().
+ */
+function ioai_perm() {
+  return array(
+    'administer oai',
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function ioai_menu() {
+  $items['admin/settings/ioai'] = array(
+    'title' => t('Independent OAI'),
+    'description' => 'Administer the Independent OAI module.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ioai_global_settings_form'), 
+    'access arguments' => array('administer oai'),
+    'file' => 'ioai.admin.inc',
+  );
+  $items['admin/settings/ioai/global'] = array(
+    'title' => 'Global',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'access arguments' => array('administer oai'),
+  );
+  foreach (array_intersect_key(node_get_types('names'), array_filter(variable_get('ioai_allow_type', array()))) as $type => $name) {
+    $items['admin/settings/ioai/'.$type] = array(
+      'title' => $name,
+      'type' => MENU_LOCAL_TASK,
+      'access arguments' => array('administer ioai'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ioai_type_settings_form', $type),
+      'file' => 'ioai.admin.inc',
+    );
+  }
+  $items['oai'] = array(
+    'title' => 'OAI',
+    'page callback' => 'ioai_response',
+    'access arguments' => array('access content'),
+  );
+  
+  return $items;
+}
+
+function db_num_rows($result='') {
+  if ($result) {
+    return pg_num_rows($result);
+  }
+  global $last_result;
+  return pg_num_rows($last_result);
+}
+
+function ioai_nodeapi(&$node, $op) {
+  if (in_array($node->type, array_filter(variable_get('ioai_allow_type', array())))) {
+    include 'oai2/globalvars.php';
+    
+    switch ($op) {
+      case 'load':
+        
+        if (variable_get("upload_$node->type", 1) == 1) {
+          $node->files = upload_load($node);
+        }
+
+        // Fix
+        $node->oai['deleted'] = $node->status? 'false': 'true';
+        $node->oai['url'] = $node->nid;
+        $node->oai['oai_identifier'] = $oaiprefix.$node->nid;
+        $node->oai['enterdate'] = ioai_pre_val('dc_date', $node->created);
+        $node->oai['datestamp'] = ioai_pre_val('dc_date', $node->changed);
+        $node->oai['sets'] = ioai_node_get_sets($node->nid);
+        
+        // Custom
+        foreach (ioai_get_dc() as $dc) {
+          $values = array();
+          foreach (ioai_get_current_map($node->type, $dc, TRUE) as $field) {
+            list($group, $code, $val) = explode(':', $field);
+	            
+            switch ($group) {
+              case 'global':
+                if (!empty($val)) {
+                  $values[] = ioai_pre_val($dc, $val, $field);
+                }
+	              break;
+              case 'node':
+                
+                if (!empty($node->$code)) {
+                  
+                  if ($code == 'files') {
+                    foreach ($node->$code as $value) {
+	                    $values[] = ioai_pre_val($dc, $value->filepath, $field);
+	                  }
+                  }
+                  elseif ($code == 'name') {
+                    
+                    if (module_exists('profile')) {
+                      $user = user_load($node->uid);
+                      $fullname = $user->profile_fullname? $user->profile_fullname: $user->name;
+                      $values[] = ioai_pre_val($dc, $fullname, $field);
+                    }
+                  }
+                  else {
+                    $values[] = ioai_pre_val($dc, $node->$code, $field);
+                  }
+                }
+	              break;
+              case 'taxonomy':
+	              foreach (taxonomy_node_get_terms_by_vocabulary($node, $code, $field) as $term) {
+	                
+	                if (!empty($term->name)) {
+	                  $values[] = ioai_pre_val($dc, $term->name, $field);
+	                }
+	              }
+	              break;
+              case 'field':
+                if ($node->$code) {
+                  $tmp = NULL;
+                  foreach ($node->$code as $value) {
+	                  if (!empty($value['value'])) {
+	                    $tmp = $value['value'];
+	                  }
+	                  elseif (!empty($value['filepath'])) {
+	                    $tmp = $value['filepath'];
+	                    $widget_type = db_result(db_query("SELECT widget_type FROM content_node_field_instance WHERE field_name = '%s' LIMIT 0, 1", $code));
+	                    if ($widget_type == 'imagefield_widget') {
+	                      $preset = variable_get('ioai_preset', FALSE);
+	                      if ($preset) {
+	                        $tmp = imagecache_create_url($preset, $tmp);
+	                      }
+	                      $tmp = url($tmp, array('absolute' => TRUE));
+	                      
+	                    }
+	                    
+	                  }
+	                  if ($tmp) {
+	                    $values[] = ioai_pre_val($dc, $tmp, $field);
+	                  }
+	                }
+                }
+	              break;
+            }
+            if (!empty($values)) {
+              $node->oai[$dc] = $values;
+            }
+	        }
+        }
+
+        break;
+      case 'insert':
+      case 'update':
+        $set = ioai_node_get_sets($node->nid);
+        db_query("INSERT INTO {ioai_node} VALUES(%d, %d, '%s', %d, '%s') ON DUPLICATE KEY UPDATE datestamp = %d, status = %d, sets = '%s'", $node->nid, $node->changed, $node->type, $node->status, $set, $node->changed, $node->status, $set);
+        break;
+      case 'delete':
+        db_query("UPDATE {ioai_node} SET status = 0, datestamp = %d WHERE nid = %d", time(), $node->nid);
+        break;
+    }
+  }
+}
+
+function ioai_cron() {
+  db_query("DELETE FROM {ioai_token} WHERE expiration < %d", time());
+}
+
+function ioai_response() {  
+  include 'oai2/globalvars.php';
+  
+  $errors = '';
+  $output = '';
+  
+  if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+  	$args = $_GET;
+  	$getarr = explode('&', $_SERVER['QUERY_STRING']);
+  } elseif ($_SERVER['REQUEST_METHOD'] == 'POST') {
+  	$args = $_POST;
+  } else {
+  	$errors .= oai_error('badRequestMethod', $_SERVER['REQUEST_METHOD']);
+  }
+  
+  // and now we make the OAI Repository Explorer really happy
+  // I have not found any way to check this for POST requests.
+  if (isset($getarr)) {
+  	if (count($getarr) != count($args)) {
+  		$errors .= oai_error('sameArgument');
+  	}
+  }
+  unset($args['q']);
+  
+  $reqattr = '';
+  if (is_array($args)) {
+  	foreach ($args as $key => $val) {
+  		$reqattr .= ' '.$key.'="'.htmlspecialchars(stripslashes($val)).'"';
+  	}
+  }
+  
+  $request = '<request'.$reqattr.'>'.$MY_URI."</request>";
+  $request_err = '<request>'.$MY_URI."</request>";
+
+  if (is_array($compression)) {
+  	if (in_array('gzip', $compression)
+  		&& ini_get('output_buffering')) {
+  		$compress = TRUE;
+  	} else
+  		$compress = FALSE;
+  }
+  
+  if (isset($args['verb'])) {
+  	switch ($args['verb']) {
+  		case 'GetRecord':
+  		  unset($args['verb']);
+  			include 'oai2/getrecord.php';
+  			break;
+  		
+  		case 'Identify':
+  			// we never use compression in Identify
+  			unset($args['verb']);
+  			$compress = FALSE;
+  			include $ioai_mpath.'/oai2/identify.php';
+  			break;
+  		
+  		case 'ListIdentifiers':
+  		  unset($args['verb']);
+  			include $ioai_mpath.'/oai2/listidentifiers.php';
+  			break;
+  			
+  		
+  		case 'ListMetadataFormats':
+  		  unset($args['verb']);
+  			include $ioai_mpath.'/oai2/listmetadataformats.php';
+  			break;
+  			
+  		
+  		case 'ListRecords':
+  		  unset($args['verb']);
+  			include $ioai_mpath.'/oai2/listrecords.php';
+  			break;
+  			
+  		case 'ListSets':
+  		  unset($args['verb']);
+  			include $ioai_mpath.'/oai2/listsets.php';
+  			break;
+  		
+  		default:
+  			// we never use compression with errors
+  			$compress = FALSE;
+  			$errors .= oai_error('badVerb', $args['verb']);
+  	} /*switch */
+
+  } else {
+  	$errors .= oai_error('noVerb');
+  }
+  
+  if ($errors != '') {
+  	oai_exit();
+  	print $errors;
+  }
+  
+  if ($compress) {
+  	ob_start('ob_gzhandler');
+  }
+
+  header($CONTENT_TYPE);
+  echo $xmlheader;
+  echo $request;
+  echo $output;
+  oai_close(); 
+  
+}
+
+function ioai_get_current_global_map($type, $oai_field, $global_name) {
+  $content_field = db_result(db_query("SELECT content_field FROM {ioai_map} WHERE type = '%s' AND oai_field = '%s' AND content_field LIKE 'global:%s:%'", $type, $oai_field, $global_name));
+  if ($content_field) {
+    $arr = explode(':', $content_field);
+    return $arr[2];
+  }
+}
+
+function ioai_get_current_map($type, $oai_field, $get_global_value = FALSE) {
+  
+  $res = db_query("SELECT content_field FROM {ioai_map} WHERE type = '%s' AND oai_field = '%s'", $type, $oai_field);
+  $maps = array();
+  while ($map = db_fetch_object($res)) {
+
+    list($group, $code, $val) = explode(':', $map->content_field);
+    if ($group == 'global' && !$get_global_value) {
+      $map->content_field = $group.':'.$code;
+    }
+    $maps[] = $map->content_field;
+  }
+
+  return $maps;
+}
+
+function ioai_get_global_map() {
+  return array(
+    'global:custom' => 'custom' ,
+    'global:type'   => 'type'   ,
+    'global:format' => 'format' ,
+  );
+}
+
+function ioai_get_node_map() {
+  return array(
+    'node:nid'       => 'nid'       ,
+    'node:title'     => 'title'     ,
+    'node:teaser'    => 'teaser'      , 
+    'node:body'      => 'body'      ,    
+    'node:type'      => 'type'      ,    
+    'node:language'  => 'language'  ,    
+    'node:status'    => 'status'    ,    
+    'node:created'   => 'created'   ,    
+    'node:changed'   => 'changed'   ,    
+    'node:promote'   => 'promote'   ,    
+    'node:sticky'    => 'sticky'    ,    
+    'node:translate' => 'translate' ,    
+    'node:format'    => 'format'    ,    
+    'node:name'      => 'name'      ,    
+    'node:picture'   => 'picture'   ,    
+    'node:path'      => 'path'      ,    
+    'node:files'     => 'files'      ,    
+  );
+}
+
+function ioai_get_dc() {
+  return array(
+    //'url'             ,
+    //'enterdate'       ,
+    //'oai_identifier'  ,
+    //'oai_set'         ,
+    //'datestamp'       ,
+    //'deleted'         ,
+    'dc_title'        ,
+    'dc_creator'      ,
+    'dc_subject'      ,
+    'dc_description'  ,
+    'dc_contributor'  ,
+    'dc_publisher'    ,
+    'dc_date'         ,
+    'dc_type'         ,
+    'dc_format'       ,
+    'dc_identifier'   ,
+    'dc_source'       ,
+    'dc_language'     ,
+    'dc_relation'     ,
+    'dc_coverage'     ,
+    'dc_rights'       ,
+  );
+}
+
+function ioai_get_global_types() {
+  $types = array('Collection', 'Dataset', 'Event', 'Image', 'InteractiveResource', 'MovingImage', 'PhysicalObject', 'Service', 'Software', 'Sound', 'StillImage', 'Text');
+  return array_combine($types, $types);
+}
+
+function ioai_get_global_formats() {
+  $formats = array('application', 'audio', 'example', 'image', 'message', 'model', 'multipart', 'text', 'video');
+  return array_combine($formats, $formats);
+}
+
+function ioai_get_record_deleted($nid) {
+  return db_fetch_array(db_query("SELECT * FROM {ioai_node} AS node WHERE nid = %d AND status = 0", $nid));
+}
+
+function ioai_num_rows($query) {
+  global $SQL;
+
+  $res = db_fetch_object(db_query("SELECT COUNT(q.".$SQL['identifier'].") AS count FROM (".$query.") AS q"));
+  return $res->count;
+}
+
+function ioai_create_token($data) {
+  global $expiration;
+  list($usec, $sec) = explode(" ", microtime());
+	$tid = ((int)($usec*1000*1000) + (int)($sec*1000*1000));
+  db_query("INSERT INTO {ioai_token} VALUES('%s', '%s', %d)", $tid, $data, $expiration);
+  return $tid;
+}
+
+function ioai_get_token($tid) {
+  return db_result(db_query("SELECT data FROM {ioai_token} WHERE tid = '%s' AND expiration >= %d", $tid, time()));
+}
+
+function ioai_delete_token($tid) {
+  db_query("DELETE FROM {ioai_token} WHERE tid = '%s'", $tid);
+}
+
+function ioai_pre_val($dc, $val, $field='') {
+  switch ($dc) {
+    case 'dc_date':
+      if (is_numeric($val)) {
+        $val = strftime("%Y-%m-%dT%H:%M:%SZ", $val);
+      }
+      else {
+        $val = str_replace(array('T', 'Z'), array(' ', ''), $val);
+        $val = strtotime($val);
+        $val = strftime("%Y-%m-%dT%H:%M:%SZ", $val);
+      }
+      break;
+    case 'dc_type':
+      $val = ucfirst($val);
+      if (!in_array($val, ioai_get_global_types())) {
+        $val = 'Text';
+      }
+      break;
+    case 'dc_format':
+      $val = strtolower($val);
+      if (!in_array($val, ioai_get_global_formats())) {
+        $val = 'text';
+      }
+      break;
+  }
+  
+  $gen_url_fields = array_merge(array('node:nid', 'node:path', 'node:url', 'node:files'), array_values(array_filter(variable_get('url_fields', array()))));
+
+  if (in_array($field, $gen_url_fields)) {
+    $val = ioai_build_full_url($val);
+
+  }
+  
+  return $val;
+}
+
+function ioai_term_get_set_array($tid) {
+  if (module_exists('pathauto')) {
+    module_load_include('inc', 'pathauto');
+  }
+  
+  $parents = taxonomy_get_parents_all($tid);
+  
+  $alias = array();
+  foreach($parents as $term) {
+    $synonyms = taxonomy_get_synonyms($term->tid);
+    if (empty($synonyms)) {
+      $path = $term->name;
+    }
+    else {
+      $path = implode('-', $synonyms);
+    }
+    
+    if (module_exists('transliteration')) {
+      $path = transliteration_get($path);
+    }
+    
+    if (module_exists('pathauto')) {
+      $path = pathauto_cleanstring($path);
+    }
+    
+    $alias[] = $path;
+  }
+  return array_reverse($alias);
+}
+
+
+function ioai_get_sets() {
+  $terms = taxonomy_get_tree(variable_get('sets', 0));
+  if (empty($terms)) {
+    return '';
+  }
+  $sets = array();
+  foreach ($terms as $term) {
+    $sets[] = array('setSpec' => implode(':', ioai_term_get_set_array($term->tid)), 'setName' => $term->name, 'setDescription' => $term->description);
+  }
+  return $sets;
+}
+
+function ioai_node_get_sets($nid) {
+  $node->vid = $nid;
+  $set = taxonomy_node_get_terms_by_vocabulary($node, variable_get('sets', 0));
+  $set = array_pop($set);
+  $set = ioai_term_get_set_array($set->tid);
+  return implode(':', $set);
+}
+
+function ioai_build_full_url($url) {
+  global $repositoryIdentifier;
+  
+  $url = is_numeric($url)? drupal_get_path_alias('node/'.$url): $url;
+  
+  $url = parse_url($url);
+  
+  $url['scheme'] = $url['scheme']? $url['scheme']: 'http';
+  $url['host'] = $url['host']? $url['host']: $repositoryIdentifier;
+  $url['path'] = (strpos($url['path'], '/') !== 0)? '/'.$url['path']: $url['path'];
+  $url['query'] = $url['query']? '?'.$url['query']: '';
+  $url['fragment'] = $url['fragment']? '#'.$url['fragment']: '';
+  return $url['scheme'].'://'.$url['host'].$url['path'].$url['query'].$url['fragment'];
+  
+}

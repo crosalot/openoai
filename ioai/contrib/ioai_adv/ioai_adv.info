@@ -1,0 +1,5 @@
+name = Advance Independent OAI 
+description = Advance config oai.
+core = 6.x
+package = OAI
+dependencies[] = ioai

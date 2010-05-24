@@ -1,0 +1,260 @@
+<?php
+// $Id; v0.3.0 $
+
+/**
+ * Implementation of hook_theme().
+ */
+function rotisearch_theme() {
+  return array(
+    'rotisearch_item' => array(
+      'arguments' => array('item' => NULL),
+      'template' => 'rotisearch-item',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function rotisearch_menu() {
+  $items['rotisearch'] = array(
+    'title' => t('Search'),
+    'page callback' => 'drupal_get_form_custom',
+    'page arguments' => array('rotisearch_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['rotisearch/result'] = array(
+    'title' => t('Search result'),
+    'page callback' => 'rotisearch_result',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+function drupal_get_form_custom($form_id) {
+  return drupal_get_form($form_id) .'<div id="rotisearch-box"></div>';
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function rotisearch_form() {
+  $mod_path = drupal_get_path('module', 'rotisearch');
+  drupal_add_css($mod_path.'/css/rotisearch.css');
+  drupal_add_js($mod_path.'/js/rotisearch.js');
+  drupal_add_css($mod_path.'/css/jquery-ui.css');
+  drupal_add_js($mod_path.'/js/jquery-min.js');
+  drupal_add_js($mod_path.'/js/jquery-ui-min.js');
+  
+  $form['query'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Keyword(s)'), 
+    '#default_value' => $_GET['query'],
+    '#description' => t('Search through all fields.'),
+  );
+  $form['advanced'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Advanced Search'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#tree' => TRUE,
+    '#attributes' => array('id' => 'advanced-search'),
+  );
+  $form['advanced']['keywords']['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#default_value' => $_GET['title'],
+    '#description' => t('Search through Title field.'),
+  );
+  $form['advanced']['keywords']['body'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Body'),
+    '#default_value' => $_GET['body'],
+    '#description' => t('Search through Body field.'),
+  );
+  $form['advanced']['keywords']['tag'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Tag'),
+    '#default_value' => $_GET['tag'],
+    '#description' => t('Search through Tag field.'),
+  );
+  $form['advanced']['keywords']['from_date'] = array(
+    '#type' => 'textfield',
+    '#title' => t('From'),
+    '#size' => 20,
+    '#weight' => 10,
+    '#default_value' => $_GET['from'],
+    '#description' => t('Format') .': '. date('Y-m-d'),
+  );
+  $form['advanced']['keywords']['to_date'] = array(
+    '#type' => 'textfield',
+    '#title' => t('To'),
+    '#size' => 20,
+    '#weight' => 11,
+    '#default_value' => $_GET['to'],
+    '#description' => t('Format') .': '. date('Y-m-d'),
+  );
+  $form['advanced']['reset'] = array(
+    '#value' => '<input class="form-button" type="button" ' .
+                'value="Reset" onclick="rotisearch_form_reset(); return false;" />',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit', 
+    '#value' => t('Search')
+  );
+  return $form;
+}
+
+// -----------------------------------------------------------------------------
+
+function rotisearch_query_builder() {
+  $q = trim($_POST['query']);
+  $q_title = trim($_POST['title']);
+  $q_body = trim($_POST['body']);
+  $q_tag = trim($_POST['tag']);
+  $q_from = trim($_POST['from']);
+  $q_to = trim($_POST['to']);
+
+  // Decode a string that is sent from JavaScript.
+  $q_tag = urldecode($q_tag);
+  
+  // $_GET['page'] is used by another pieces of code.
+  $_GET['page'] = $_POST['page'];
+
+  $query = '';
+  if (strlen($q) > 0 &&
+       (strlen($q_title) == 0 &&
+        strlen($q_body) == 0 &&
+        strlen($q_tag) == 0 &&
+        strlen($q_from) == 0 &&
+        strlen($q_to) == 0)) {
+    $query .= urlencode($q);
+  }
+
+  if (strlen($q_title) > 0) {
+    $query .= '&title='. urlencode($q_title);
+  } else {
+    // Don't pass null query string to Drupal's pager.
+    unset($_REQUEST['title']);
+  }
+
+  if (strlen($q_body) > 0) {
+    $query .= '&body='. urlencode($q_body);
+  } else {
+    unset($_REQUEST['body']);
+  }
+
+  if (strlen($q_tag) > 0) {
+    $query .= '&tag='. urlencode($q_tag);
+  } else {
+    unset($_REQUEST['tag']);
+  }
+
+  if (strlen($q_from) > 0) {
+    $query .= '&from='. urlencode($q_from);
+  } else {
+    unset($_REQUEST['from']);
+  }
+
+  if (strlen($q_to) > 0) {
+    $query .= '&to='. urlencode($q_to);
+  } else {
+    unset($_REQUEST['to']);
+  }
+
+  // Store statistics if an input is sent from form's submission.
+  if ($_POST['is_form_submit'] == 'true') {
+    $query .= '&source=form';
+  }
+
+  return $query;
+}
+
+function rotisearch_result() {
+  $query = rotisearch_query_builder();
+  $modified_query = preg_replace('/&?source=form/', '', $query);
+  if ($query == '' || $modified_query == '') {
+    drupal_goto('rotisearch');
+  }
+
+  $ipp = variable_get('rotisearch_ipp', 10);
+  $url = variable_get('rotiping_url', ROTIPING_DEFAULT_URL);
+  if ($url && arg(0) == 'rotisearch') {
+    $url .= substr($url, -1) == '/' ? 'search/' : '/search/';
+    $url .= '?query='. $query;
+    $url .= '&rows='. $ipp;
+    $url .= '&wt=json';
+    $url .= ($_GET['page'] ? '&start='. ($_GET['page'] * $ipp) : '');
+    $url .= '&facet=true&facet.field=tags';
+  }
+
+  $response = drupal_http_request($url);
+  if ($response->code != 200 && $response->redirect_code != 200) {
+    return $response->error;
+  }
+  $result = json_decode($response->data);
+  $items = $result->data;
+  $contents = array();
+  foreach ($items as $item) {
+    $contents[] = theme('rotisearch_item', $item);
+  }
+
+  $matches = $result->num_found;
+  pager_query("SELECT $matches", $ipp, 0, "SELECT $matches");
+
+  if ($matches > 0) {
+    $start_offset = $_GET['page'] * $ipp + 1;
+    $start_offset = '<strong>'. $start_offset .'</strong>';
+    $end_offset = ($_GET['page'] * $ipp + $ipp > $matches) ? $matches : ($_GET['page'] * $ipp + $ipp);
+    $end_offset = '<strong>'. $end_offset .'</strong>';
+    $stats = 'Results '. $start_offset .' - '. $end_offset .' of about <strong>'. $matches .'</strong>';
+    $stats = '<div class="result-stats">'. $stats .'</div>';
+  } else {
+    $query = $modified_query;
+    if (trim($_POST['query']) != '') {
+      $query = urldecode($query);
+    } else {
+      $qs = split('&', $query);
+      $query = '';
+      foreach($qs as $q) {
+        $query .= urldecode($q) .', ';
+      }
+      // Remove unusable characters.
+      $query = substr($query, 2);
+      $query = substr($query, 0, -2);
+    }
+    $stats = 'Your search - <strong>'. $query .'</strong> - did not match any documents.';
+  }
+
+  $output .= drupal_get_form('rotisearch_form');
+  $output .= '<div id="rotisearch-result">';
+  $output .= $stats;
+  $output .= theme('item_list', $contents, NULL, 'ol');
+  $output .= theme('pager', array(), $ipp);
+  $output .= '</div>';
+  return $output;
+}
+
+// -----------------------------------------------------------------------------
+
+function change_tag_format($tag) {
+  $ret = '';
+  foreach ($tag as $t) {
+    $ret .= '<a href="?query=&tag='. $t .'">'. $t . '</a>, ';
+  }
+  return substr($ret, 0, -2);
+}
+
+function change_date_format($date) {
+  return strftime("%Y-%m-%d %H:%M", strtotime($date));
+}
+
+function logToFile($msg='') {
+  $filename = '/tmp/log.txt';
+	$fd = fopen($filename, "a");
+	$str = "[" . date("Y/m/d h:i:s", mktime()) . "] " . $msg;	
+	fwrite($fd, $str . "\n");
+	fclose($fd);
+}

@@ -1,0 +1,469 @@
+<?php
+// $Id: rotioai.module,v 0.1.4 2010/04/09 $
+
+define('ROTIOAI_DEFAULT_URL', 'http://roti.me/app/opensearch');
+
+/**
+ * Implementation of hook_theme().
+ */
+function rotioai_theme() {
+  return array(
+    'rotioai_item' => array(
+      'arguments' => array('item' => NULL),
+      'template' => 'rotioai-item',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function rotioai_menu() {
+  $items['admin/settings/rotioai'] = array(
+    'title' => t('Roti OAI settings'),
+    'description' => t('Configure the options defined for Roti OAI module.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotioai_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'rotioai.admin.inc',
+  );
+  $items['rotisearch'] = array(
+    'title' => t('Search'),
+    'page callback' => 'rotioai_get_form',
+    'page arguments' => array('rotioai_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['rotisearch/result'] = array(
+    'title' => t('Search result'),
+    'page callback' => 'rotioai_result',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function rotioai_nodeapi(&$node, $op, $a3=null, $a4=null) {
+  if ($op == 'insert' || $op == 'update' || $op == 'view' || $op == 'delete') {
+    $content_types = variable_get('ioai_allow_type', array());
+    $found = 0;
+    foreach ($content_types as $v) {
+      if ($node->type === $v) {
+        $found = 1;
+        break;
+      } else {
+        $found = 0;
+      }
+    }
+
+    # Exit if the node's content type is not selected to ping
+    if ($found == 0) {
+      return;
+    }
+
+    $ping_url = variable_get('rotioai_url', ROTIOAI_DEFAULT_URL);
+    if (substr($ping_url, -1) != "/") {
+      $ping_url .= "/";
+    }
+
+    switch ($op) {
+      case 'insert':
+        rotioai_add_document($node, $ping_url);
+        break;
+      case 'update':
+        if ($node->status == 1) { // Published
+          $_SESSION['after_update'] = TRUE;
+        } else {
+          rotioai_delete_document($node, $ping_url);
+        }
+        break;
+      case 'delete':
+        rotioai_delete_document($node, $ping_url);
+        break;
+      case 'view':
+        // Cheat: taxonomy_node_get_terms() doesn't update when $op=update
+        if (isset($_SESSION['after_update']) && $_SESSION['after_update'] == TRUE) {
+          rotioai_add_document($node, $ping_url);
+          unset($_SESSION['after_update']);
+        }
+        break;
+    }
+  }
+}
+
+function rotioai_add_document($node, $ping_url) {
+  $ping_url = $ping_url . "add/";
+  
+  $oai = $node->oai;
+
+  $data = 'header_identifier='.urlencode($oai['oai_identifier']).
+          '&header_datestamp='.urlencode($oai['datestamp']).
+          '&header_setSpec='.urlencode($oai['sets']).
+          '&repositoryName='.urlencode(variable_get('repository_name', 'opensearch')).
+          '&repositoryIdentifier='.urlencode(variable_get('site_name', 'opensearch')).
+          '&category='.urlencode(variable_get('oai_category', ''));
+
+  foreach ($oai as $key => $val) {
+    if (substr($key, 0, 3) == 'dc_') {
+      $dc_name = substr($key, 3);
+      if ($dc_name == 'description') {
+        $val = rotioai_clean_text(implode('|', $val));
+      }
+      else {
+        $val =implode('|', $val);
+      }
+      $data .= '&'.$dc_name.'='.urlencode($val);
+    }
+  }
+
+  try {
+    $headers = array('Content-Type' => 'text/html; charset=utf-8');
+    $resp = drupal_http_request($ping_url, $headers, 'POST', $data);
+    //drupal_set_message('<pre>'.print_r($ping_url, TRUE).'</pre>');
+  } catch (Exception $e) {
+    watchdog('actions', $e->getMessage(), array(), WATCHDOG_ERROR);
+  }
+}
+
+function rotioai_delete_document($node, $ping_url) {
+  $ping_url = $ping_url . "delete/";
+  $node = node_load($node->nid);
+  $oai = $node->oai;
+  $data = 'header_identifier='.urlencode($oai['oai_identifier']).
+          '&header_datestamp='.urlencode($oai['datestamp']).
+          '&repositoryIdentifier='.urlencode(variable_get('site_name', 'opensearch')).
+          '&title='.urlencode(implode('|', $oai['dc_title']));
+          
+  try {
+    $headers = array('Content-Type' => 'text/html; charset=utf-8');
+    drupal_http_request($ping_url, $headers, 'POST', $data);
+  } catch (Exception $e) {
+    watchdog('actions', $e->getMessage(), array(), WATCHDOG_ERROR);
+  }
+}
+
+function rotioai_clean_text($string) {
+  # Remove HTML tags
+  $string = strip_tags($string);
+
+  # Convert &nbsp; to Ascii space
+  $p = '/&nbsp;/';
+  $string = preg_replace($p, ' ', $string);
+
+  $string = html_entity_decode($string, ENT_QUOTES, 'UTF-8');
+
+  # Remove extra space
+  $p = '/\s+/';
+  $string = preg_replace($p, ' ', $string);
+
+  return trim($string);
+}
+
+// SEARCH =================================================================================
+
+function rotioai_get_form($form_id) {
+  return drupal_get_form($form_id) .'<div id="rotisearch-box"></div>';
+}
+
+function rotioai_lite_form() {
+  $form['#action'] = '/rotisearch';
+  $form['query'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Search'), 
+    '#default_value' => $_REQUEST['query'],
+  );
+  $form['submit'] = array(
+    '#type' => 'submit', 
+    '#value' => t('Search')
+  );
+  return $form;
+}
+/**
+ * Implementation of hook_form().
+ */
+function rotioai_form() {
+  $mod_path = drupal_get_path('module', 'rotioai');
+  drupal_add_css($mod_path.'/css/rotioai.css');
+  drupal_add_js($mod_path.'/js/rotioai.js');
+  drupal_add_css($mod_path.'/css/jquery-ui.css');
+  drupal_add_js($mod_path.'/js/jquery-min.js');
+  drupal_add_js($mod_path.'/js/jquery-ui-min.js');
+  
+  $form['query'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Keyword(s)'), 
+    '#default_value' => $_REQUEST['query'],
+    '#description' => t('Search through all fields.'),
+  );
+  
+  $fields = variable_get('rotioai_dc', array());
+  if (!empty($fields)) {
+    $form['advanced'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Advanced Search'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#tree' => TRUE,
+      '#attributes' => array('id' => 'advanced-search'),
+    );
+    
+    $fields = array_filter($fields);
+    foreach ($fields as $field) {
+      $form['advanced']['keywords'][$field] = array(
+        '#type' => 'textfield',
+        '#title' => t(ucfirst($field)),
+        '#default_value' => $_REQUEST[$field],
+        '#description' => t('Search through !f field.', array('!f' => $field)),
+        '#suffix' => '<div class="field-name" style="display:none;">'.$field.'</div>',
+      );
+    }
+    
+    if ($form['advanced']['keywords']['date']) {
+      unset($form['advanced']['keywords']['date']);
+      $form['advanced']['keywords']['from_date'] = array(
+        '#type' => 'textfield',
+        '#title' => t('From'),
+        '#size' => 20,
+        '#weight' => 10,
+        '#default_value' => $_REQUEST['from'],
+        '#description' => t('Format') .': '. date('Y-m-d'),
+        '#suffix' => '<div class="field-name" style="display:none;">from</div>',
+      );
+      $form['advanced']['keywords']['to_date'] = array(
+        '#type' => 'textfield',
+        '#title' => t('To'),
+        '#size' => 20,
+        '#weight' => 11,
+        '#default_value' => $_REQUEST['to'],
+        '#description' => t('Format') .': '. date('Y-m-d'),
+        '#suffix' => '<div class="field-name" style="display:none;">to</div>',
+      );
+    }
+  }
+  
+  $form['submit'] = array(
+    '#type' => 'submit', 
+    '#value' => t('Search')
+  );
+  $form['reset'] = array(
+    '#value' => '<input class="form-button" type="button" ' .
+                'value="Reset" onclick="rotioai_form_reset(); return false;" />',
+  );
+  return $form;
+}
+
+function rotioai_query_builder() {
+  // Store statistics if an input is sent from form's submission.
+  $q = trim($_POST['query']);
+  
+  $fields = variable_get('rotioai_dc', array());
+  $fields[] = 'from';
+  $fields[] = 'to';
+  foreach ($fields as $field) {
+    $q_fields[$field] = trim($_POST[$field]);
+  }
+  $q_fields = array_filter($q_fields);
+  
+  // Decode a string that is sent from JavaScript.
+  if ($q_fields['subject']) {
+    $q_fields['subject'] = urldecode($q_fields['subject']);
+  }
+  
+  // $_GET['page'] is used by another pieces of code.
+  $_GET['page'] = $_POST['page'];
+
+  $query = '';
+  
+  if (strlen($q) > 0 && empty($q_fields)) {
+    $query .= urlencode($q);
+  }
+  foreach ($q_fields as $key => $value) {
+    if (strlen($value) > 0) {
+      $query .= '&'.$key.'='. urlencode($value);
+    } else {
+      // Don't pass null query string to Drupal's pager.
+      unset($_REQUEST[$key]);
+    }
+  }
+  
+  if (variable_get('rotioai_cross', FALSE)) {
+    //$repo = variable_get('rotioai_repo', variable_get('site_name', 'Repository identifier').'|'.variable_get('repository_name', 'Repository name'));
+    //TODO: support cross search
+  }
+  else {
+    if (!empty($q_fields)) {
+      $query .= '&repositoryIdentifier='.urlencode(variable_get('site_name', 'opensearch'));
+    }
+  }
+
+  // Store statistics if an input is sent from form's submission.
+  if ($_POST['is_form_submit'] == 'true') {
+    $query .= '&source_by=form';
+  }
+
+  return $query;
+}
+
+function rotioai_result() {
+  $query = rotioai_query_builder();
+  $modified_query = preg_replace('/&?source_by=form/', '', $query);
+  if ($query == '' || $modified_query == '') {
+    print 'no result';
+    exit();
+  }
+
+  $ipp = variable_get('rotioai_ipp', 10);
+  $url = variable_get('rotioai_url', ROTIOAI_DEFAULT_URL);
+  if ($url && arg(0) == 'rotisearch') {
+    $url .= substr($url, -1) == '/' ? 'search/' : '/search/';
+    $url .= '?query='. $query;
+    $url .= '&rows='. $ipp;
+    $url .= '&wt=json';
+    $url .= ($_GET['page'] ? '&start='. ($_GET['page'] * $ipp) : '');
+    //$url .= '&facet=true&facet.field=type';
+  }
+  print $url;
+  //exit();
+  
+  $response = drupal_http_request($url);
+  if ($response->code != 200 && $response->redirect_code != 200) {
+    return $response->error;
+  }
+  $result = json_decode($response->data);
+  $items = $result->data;
+  $contents = array();
+  if ($items) {
+    foreach ($items as $item) {
+      $contents[] = theme('rotioai_item', $item);
+    }
+  }
+
+  $matches = $result->num_found? $result->num_found: '0';
+  pager_query("SELECT $matches", $ipp, 0, "SELECT $matches");
+
+  if ($matches > 0) {
+    $start_offset = $_GET['page'] * $ipp + 1;
+    $start_offset = '<strong>'. $start_offset .'</strong>';
+    $end_offset = ($_GET['page'] * $ipp + $ipp > $matches) ? $matches : ($_GET['page'] * $ipp + $ipp);
+    $end_offset = '<strong>'. $end_offset .'</strong>';
+    $stats = 'Results '. $start_offset .' - '. $end_offset .' of about <strong>'. $matches .'</strong>';
+    $stats = '<div class="result-stats">'. $stats .'</div>';
+  } else {
+    $query = $modified_query;
+    if (trim($_POST['query']) != '') {
+      $query = urldecode($query);
+    } else {
+      $qs = split('&', $query);
+      $query = '';
+      foreach($qs as $q) {
+        $query .= urldecode($q) .', ';
+      }
+      // Remove unusable characters.
+      $query = substr($query, 2);
+      $query = substr($query, 0, -2);
+    }
+    //$stats = 'Your search - <strong>'. $query .'</strong> - did not match any documents.';
+    $stats = 'Your search resilt did not match any documents.';
+  }
+
+  $output .= drupal_get_form('rotioai_form');
+  $output .= '<div id="rotisearch-result">';
+  $output .= $stats;
+  $output .= theme('item_list', $contents, NULL, 'ol');
+  $output .= theme('pager', array(), $ipp);
+  $output .= '</div>';
+  print $output;
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function rotioai_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks['search'] = array('info' => t('Roti Search'));
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    switch($delta) {
+      case 'search':
+        $block = array(
+          'content' => drupal_get_form('rotioai_lite_form'),
+        );
+        break;
+    }
+    return $block;
+  }
+}
+
+// -----------------------------------------------------------------------------
+
+function ro_url($items) {
+  if (empty($items)) { return; }
+  foreach ($items as $url) {
+    if (valid_url($url, TRUE)) {
+      return $url;
+    }
+  }
+}
+
+function ro_img($items, $format = array('jpg', 'png', 'gif')) {
+  $path = '';
+  if (!is_array($items)) {
+    return '';
+  }
+  foreach ($items as $value) {
+    if (empty($format) && !is_numeric($value)) {
+      $path = $value;
+      break;
+    }
+    $sp = explode('.', $value);
+    if (in_array(end($sp), $format)) {
+      $path = $value;
+      break;
+    }
+  }
+  if (empty($path)) {
+    return '';
+  }
+  //return theme('image', $path);
+  return $path;
+}
+
+function ro_date($items, $format="%Y-%m-%d") {
+  if (empty($items)) { return; }
+  foreach ($items as $value) {
+    $date = strftime($format, strtotime(str_replace('Z', '', $value)));
+    if ($date) {
+      return $date;
+    }
+  }
+}
+
+function ro_num($items) {
+  if (empty($items)) { return; }
+  foreach ($items as $value) {
+    if(is_numeric($value)) {
+      return $value;
+    }
+  }
+}
+
+function ro_str($items) {
+  if (empty($items)) { return; }
+  return implode(', ', $items);
+}
+
+function ro_query($items, $field) {
+  if (empty($items)) { return; }
+  $ret = '';
+  foreach ($items as $value) {
+    $ret .= '<a class="roti-query" href="'. $field .'='. $value .'">'. $value . '</a>, ';
+  }
+  return substr($ret, 0, -2);
+}
+
+?>

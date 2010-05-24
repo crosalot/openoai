@@ -1,0 +1,6 @@
+; $Id$
+name = Roti OAI
+description = Search and ping with oai.
+package = Roti 
+version = 6.x-0.1.4
+core = 6.x

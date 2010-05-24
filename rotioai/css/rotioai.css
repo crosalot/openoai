@@ -1,0 +1,40 @@
+#rotisearch-result ol li {
+	list-style-type: none;
+	background-image: none !important;
+	margin: 0 0 35px 0;
+	padding: 0;
+	width: 600px;
+}
+
+#rotisearch-result li em {
+	font-style: normal; 
+	background-color: #F6F666;
+}
+
+#rotisearch-result p {
+	margin: 8px 0;
+}
+
+#rotisearch-result .meta {
+	color: #888;
+}
+
+#rotisearch-result .meta .terms {
+	float: none;
+}
+
+#rotisearch-result .meta span.label {
+	font-weight: bold;
+}
+
+#rotisearch-result .result-stats {
+	margin-bottom: 20px;
+	text-align: right;
+	width: 600px;
+}
+#rotisearch-result .layer-first {
+  float: left;
+}
+#rotisearch-result .layer-last {
+  margin-left: 155px;
+}

@@ -1,0 +1,4 @@
+name = Independent OAI
+description = Open Archives Initiative, independent other module.
+core = 6.x
+package = OAI

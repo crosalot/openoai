@@ -1,0 +1,18 @@
+.global-edit {
+	padding-left: 20px;
+}
+
+.global-field {
+	display: none;
+	margin-left: 5px;
+}
+
+.global-close {
+	display: none;
+}
+
+#ioai-type-settings-form .oai-wrap {
+	float: left;
+	margin-right: 20px;
+	position: relative;
+}
