@@ -131,7 +131,7 @@ $delimiter			= variable_get('delimiter', ':');
 // see: http://www.openarchives.org/OAI/2.0/guidelines-oai-identifier.htm
 // Basically use domainname-word.domainname
 // please adjust
-$repositoryIdentifier = variable_get('site_name', 'Drupal');
+$repositoryIdentifier = variable_get('repository_identifier', variable_get('site_name', 'opensearch'));
 
 
 // description is defined in identify.php 

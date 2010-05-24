@@ -9,6 +9,12 @@ function ioai_global_settings_form() {
     '#default_value' => variable_get('repository_name', 'opensearch'),
   );
   
+  $form['repository_identifier'] = array(
+    '#title' => 'Repository identifier',
+    '#type' => 'textfield',
+    '#default_value' => variable_get('repository_identifier', variable_get('site_name', 'opensearch')),
+  );
+  
   $form['oai_category'] = array(
     '#title' => 'Category',
     '#type' => 'textfield',
