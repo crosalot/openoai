@@ -42,7 +42,7 @@ function rotioai_settings(&$form_state) {
   $form['rotioai']['rotioai_repo'] = array(
     '#title' => t('Repositories for cross search'),
     '#type' => 'textarea',
-    '#default_value' => variable_get('rotioai_repo', variable_get('site_name', 'Repository identifier').'|'.variable_get('repository_name', 'Repository name')),
+    '#default_value' => variable_get('rotioai_repo', variable_get('repository_identifier', 'Repository identifier').'|'.variable_get('repository_name', 'Repository name')),
   );
 
   

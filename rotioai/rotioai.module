@@ -104,7 +104,7 @@ function rotioai_add_document($node, $ping_url) {
           '&header_datestamp='.urlencode($oai['datestamp']).
           '&header_setSpec='.urlencode($oai['sets']).
           '&repositoryName='.urlencode(variable_get('repository_name', 'opensearch')).
-          '&repositoryIdentifier='.urlencode(variable_get('site_name', 'opensearch')).
+          '&repositoryIdentifier='.urlencode(variable_get('repository_identifier', 'opensearch')).
           '&category='.urlencode(variable_get('oai_category', ''));
 
   foreach ($oai as $key => $val) {
@@ -135,7 +135,7 @@ function rotioai_delete_document($node, $ping_url) {
   $oai = $node->oai;
   $data = 'header_identifier='.urlencode($oai['oai_identifier']).
           '&header_datestamp='.urlencode($oai['datestamp']).
-          '&repositoryIdentifier='.urlencode(variable_get('site_name', 'opensearch')).
+          '&repositoryIdentifier='.urlencode(variable_get('repository_identifier', 'opensearch')).
           '&title='.urlencode(implode('|', $oai['dc_title']));
           
   try {
@@ -291,12 +291,12 @@ function rotioai_query_builder() {
   }
   
   if (variable_get('rotioai_cross', FALSE)) {
-    //$repo = variable_get('rotioai_repo', variable_get('site_name', 'Repository identifier').'|'.variable_get('repository_name', 'Repository name'));
     //TODO: support cross search
+    $repotext = variable_get('rotioai_repo', variable_get('repository_identifier', 'Repository identifier').'|'.variable_get('repository_name', 'Repository name'));
   }
   else {
     if (!empty($q_fields)) {
-      $query .= '&repositoryIdentifier='.urlencode(variable_get('site_name', 'opensearch'));
+      $query .= '&repositoryIdentifier='.urlencode(variable_get('repository_identifier', 'opensearch'));
     }
   }
 

@@ -1,7 +1,0 @@
-; $Id $
-name = RotiSearch 
-description = Search content from Roti server.
-package = Roti
-core = 6.x
-version = 6.x-0.3
-dependencies[] = rotiping
