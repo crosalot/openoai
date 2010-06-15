@@ -253,6 +253,11 @@ function rotioai_form() {
     '#value' => '<input class="form-button" type="button" ' .
                 'value="Reset" onclick="rotioai_form_reset(); return false;" />',
   );
+  
+  $form['loading'] = array(
+    '#type' => 'markup', 
+    '#value' => '<img width="100px" height="100px" id="roti-loading" src="'.$mod_path.'/images/loading45.gif" alt="LOADING ..." title="loading" />', 
+  );
   return $form;
 }
 
@@ -289,16 +294,32 @@ function rotioai_query_builder() {
       unset($_REQUEST[$key]);
     }
   }
-  
+  $use_cat = variable_get('rotioai_cross_cat', FALSE);
   if (variable_get('rotioai_cross', FALSE)) {
     //TODO: support cross search
     $repotext = variable_get('rotioai_repo', variable_get('repository_identifier', 'Repository identifier').'|'.variable_get('repository_name', 'Repository name'));
-  }
-  else {
-    if (!empty($q_fields)) {
-      $query .= '&repositoryIdentifier='.urlencode(variable_get('repository_identifier', 'opensearch'));
+    $repodetail = explode("\n", $repotext);
+    foreach ($repodetail as $val) {
+      $repoid = explode('|', $val);
+      $repoids[] = $repoid[0];
     }
+    if (!empty($repoids)) {
+      $query .= '&repositoryIdentifier='.urlencode(implode(',', $repoids));
+    }
+    //drupal_set_message(print_r($query, 1));
   }
+  elseif (!$use_cat) {
+    $query .= '&repositoryIdentifier='.variable_get('repository_identifier', 'opensearch');
+  }
+  
+  if ($use_cat) {
+    $cats = variable_get('rotioai_repo_cat', variable_get('oai_category', ''));
+    if (!empty($cats)) {
+      $query .= '&category='.urlencode($cats);
+    }
+    //drupal_set_message(print_r($query, 1));
+  }
+  
 
   // Store statistics if an input is sent from form's submission.
   if ($_POST['is_form_submit'] == 'true') {
@@ -416,9 +437,32 @@ function ro_img($items, $format = array('jpg', 'png', 'gif')) {
     return '';
   }
   foreach ($items as $value) {
+
     if (empty($format) && !is_numeric($value)) {
-      $path = $value;
-      break;
+
+      if ($fp = @fopen($value, 'rb')) {
+        $content = fread($fp, 100);
+
+        $descriptorspec = array(
+        0 => array('pipe', 'r'),
+        1 => array('pipe', 'w'),
+        );
+
+        $proc = proc_open('cat - | file -b --mime-type -', $descriptorspec, $pipes);
+        fwrite($pipes[0], $content);
+        fclose($pipes[0]);
+
+        $mime = stream_get_contents($pipes[1]);
+        $return_value = proc_close($proc);
+              
+        $type = explode('/', $mime);
+        $type = $type[0];
+        
+        if ($type == 'image') {
+          $path = $value;
+          break;
+        }
+      }
     }
     $sp = explode('.', $value);
     if (in_array(end($sp), $format)) {

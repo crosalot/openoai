@@ -64,7 +64,10 @@ $(document).ready(function() {
 
 		var fields = get_fields();
 		jQuery.extend(req, fields);
-
+    $('#roti-loading').show();
+    if (!jQuery.isEmptyObject(fields) || query) {
+			window.location.hash = '#rotisearch-box';
+		}
 		$('#rotisearch-box').load('rotisearch/result #rotisearch-result', req, function() {
 				$('ul.pager a').click(function(e) {
 					e.preventDefault();
@@ -105,12 +108,10 @@ $(document).ready(function() {
 					$('#advanced-search').addClass('collapsed');
 					$('#advanced-search').removeClass('advanced');
 				}
-
-				if (!jQuery.isEmptyObject(fields) || query) {
-					window.location.hash = '#rotisearch-box';
-				}
-
+      
+        $('#roti-loading').hide();
 			}).effect('highlight', {}, 1000);
+
 	};
 	
 	var query = jQuery.trim($('#edit-query').val());

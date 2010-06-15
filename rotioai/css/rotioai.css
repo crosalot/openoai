@@ -38,3 +38,15 @@
 #rotisearch-result .layer-last {
   margin-left: 155px;
 }
+
+#roti-loading {
+  z-index: 200;
+  display:none;
+  position:fixed;
+  width: 100px;
+  height: 100px;
+  top:150px;
+  left:300px;
+  
+
+}

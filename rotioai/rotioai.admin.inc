@@ -33,16 +33,33 @@ function rotioai_settings(&$form_state) {
     '#description' => t('Allow user search dc field in advance search'),
   );
   
-  $form['rotioai']['rotioai_cross'] = array(
+  $form['rotioai']['cross'] = array(
     '#title' => t('Cross search'),
+    '#type' => 'fieldset',
+  );
+  $form['rotioai']['cross']['rotioai_cross'] = array(
+    '#title' => t('Repository'),
     '#type' => 'checkbox',
     '#default_value' => variable_get('rotioai_cross', FALSE),
-    '#description' => t('Allow search cross site'),
+    '#description' => t('Allow search cross repositories'),
   );
-  $form['rotioai']['rotioai_repo'] = array(
+  $form['rotioai']['cross']['rotioai_repo'] = array(
     '#title' => t('Repositories for cross search'),
     '#type' => 'textarea',
     '#default_value' => variable_get('rotioai_repo', variable_get('repository_identifier', 'Repository identifier').'|'.variable_get('repository_name', 'Repository name')),
+    '#description' => t("Example:<br />[repository identifier 1]|[repository name 1]<br />[repository identifier 2]|[repository name 2]"),
+  );
+  $form['rotioai']['cross']['rotioai_cross_cat'] = array(
+    '#title' => t('catrgories'),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('rotioai_cross_cat', FALSE),
+    '#description' => t('Allow search from categories'),
+  );
+  $form['rotioai']['cross']['rotioai_repo_cat'] = array(
+    '#title' => t('Categories for cross search'),
+    '#type' => 'textfield',
+    '#default_value' => variable_get('oai_category', ''),
+    '#description' => t('Separate by , and no space'),
   );
 
   
