@@ -417,10 +417,11 @@ function ioai_pre_val($dc, $val, $field='') {
       }
       break;
     case 'dc_type':
-      $val = ucfirst($val);
-      if (!in_array($val, ioai_get_global_types())) {
-        $val = 'Text';
-      }
+      //$val = ucfirst($val);
+      
+      //if (!in_array($val, ioai_get_global_types())) {
+      //  $val = 'Text';
+      //}
       break;
     case 'dc_format':
       $val = strtolower($val);

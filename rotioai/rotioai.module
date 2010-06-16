@@ -171,6 +171,16 @@ function rotioai_get_form($form_id) {
 
 function rotioai_lite_form() {
   $form['#action'] = '/rotisearch';
+  $options = rotioai_get_quick_options();
+  if (variable_get('rotioai_quick_block', FALSE) && !empty($options)) {
+    $options = array_merge(array('all' => '- '.t('All').' -'), $options);
+    $form['quick'] = array(
+      '#type' => 'select', 
+      '#title' => t('Category'), 
+      '#options' => $options,
+      '#default_value' => $_REQUEST['quick'],
+    );
+  }
   $form['query'] = array(
     '#type' => 'textfield', 
     '#title' => t('Search'), 
@@ -193,6 +203,19 @@ function rotioai_form() {
   drupal_add_js($mod_path.'/js/jquery-min.js');
   drupal_add_js($mod_path.'/js/jquery-ui-min.js');
   
+  $options = rotioai_get_quick_options();
+  if (!empty($options)) {
+    if (variable_get('rotioai_quick_full', FALSE) || variable_get('rotioai_quick_block', FALSE)) {
+      $options = array_merge(array('all' => '- '.t('All').' -'), $options);
+      $form['quick'] = array(
+        '#type' => 'select', 
+        '#title' => t('Category'), 
+        '#options' => $options,
+        '#default_value' => $_REQUEST['quick'],
+      );
+    }
+  }
+  
   $form['query'] = array(
     '#type' => 'textfield', 
     '#title' => t('Keyword(s)'), 
@@ -201,6 +224,7 @@ function rotioai_form() {
   );
   
   $fields = variable_get('rotioai_dc', array());
+  $fields = array_filter($fields);
   if (!empty($fields)) {
     $form['advanced'] = array(
       '#type' => 'fieldset',
@@ -271,6 +295,11 @@ function rotioai_query_builder() {
   foreach ($fields as $field) {
     $q_fields[$field] = trim($_POST[$field]);
   }
+  
+  if ($_POST['quick'] != 'all') {
+    $quick = explode(':', $_POST['quick']);
+    $q_fields[$quick[0]] = trim($quick[1]);
+  }
   $q_fields = array_filter($q_fields);
   
   // Decode a string that is sent from JavaScript.
@@ -283,7 +312,7 @@ function rotioai_query_builder() {
 
   $query = '';
   
-  if (strlen($q) > 0 && empty($q_fields)) {
+  if (strlen($q) > 0) {
     $query .= urlencode($q);
   }
   foreach ($q_fields as $key => $value) {
@@ -418,6 +447,30 @@ function rotioai_block($op = 'list', $delta = 0, $edit = array()) {
     }
     return $block;
   }
+}
+
+function rotioai_get_quick_options() {
+  $text = variable_get('rotioai_quick_rule', '');
+  if (!$text) {
+    return;
+  }
+
+  
+  $options = array();
+  $rows = explode("\n", $text);
+  foreach ($rows as $key => $row) {
+    $rule = explode('|', $row);
+    $rule[0] = trim($rule[0]);
+    $rule[1] = trim($rule[1]);
+    $rule[2] = trim($rule[2]);
+    $options[$rule[0].':'.$rule[1]] = $rule[2]? $rule[2]: rotioai_get_default_rule($rule[0], $rule[1]);
+  }
+  
+  return $options;
+}
+
+function rotioai_get_default_rule($key, $value) {
+  return $key == 'type'? node_get_types('name', trim($value)): trim($value);
 }
 
 // -----------------------------------------------------------------------------

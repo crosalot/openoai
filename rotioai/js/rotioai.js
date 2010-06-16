@@ -47,11 +47,13 @@ $(document).ready(function() {
 		}
 		
 		var query = jQuery.trim($('#edit-query').val());
+		var quick = jQuery.trim($('#edit-quick').val());
 		
 		var req = {
 		  'page': page,
 		  'is_form_submit': is_form_submit,
-		  'query': query
+		  'query': query,
+		  'quick': quick
 		};
 		
     if (query_link) {

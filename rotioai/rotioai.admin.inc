@@ -36,6 +36,8 @@ function rotioai_settings(&$form_state) {
   $form['rotioai']['cross'] = array(
     '#title' => t('Cross search'),
     '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => !(variable_get('rotioai_cross_cat', FALSE) && !variable_get('rotioai_cross', FALSE)),
   );
   $form['rotioai']['cross']['rotioai_cross'] = array(
     '#title' => t('Repository'),
@@ -60,6 +62,31 @@ function rotioai_settings(&$form_state) {
     '#type' => 'textfield',
     '#default_value' => variable_get('oai_category', ''),
     '#description' => t('Separate by , and no space'),
+  );
+  
+  $form['rotioai']['quick'] = array(
+    '#title' => t('Quick search'),
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => !variable_get('rotioai_quick_full', FALSE) && !variable_get('rotioai_quick_block', FALSE),
+  );
+  $form['rotioai']['quick']['rotioai_quick_full'] = array(
+    '#title' => t('Full form'),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('rotioai_quick_full', FALSE),
+    '#description' => t('Allow quick search form [full]'),
+  );
+    $form['rotioai']['quick']['rotioai_quick_block'] = array(
+    '#title' => t('Block form'),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('rotioai_quick_block', FALSE),
+    '#description' => t('Allow quick search form [block]'),
+  );
+  $form['rotioai']['quick']['rotioai_quick_rule'] = array(
+    '#title' => t('Rule'),
+    '#type' => 'textarea',
+    '#default_value' => variable_get('rotioai_quick_rule', ''),
+    '#description' => 'Example:<br />type|story<br />type|page<br />subject|health<br />subject|sport',
   );
 
   
