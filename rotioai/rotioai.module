@@ -106,19 +106,22 @@ function rotioai_add_document($node, $ping_url) {
           '&repositoryName='.urlencode(variable_get('repository_name', 'opensearch')).
           '&repositoryIdentifier='.urlencode(variable_get('repository_identifier', 'opensearch')).
           '&category='.urlencode(variable_get('oai_category', ''));
-
-  foreach ($oai as $key => $val) {
-    if (substr($key, 0, 3) == 'dc_') {
-      $dc_name = substr($key, 3);
-      if ($dc_name == 'description') {
-        $val = rotioai_clean_text(implode('|', $val));
+  if ($oai) {
+    foreach ($oai as $key => $val) {
+      if (substr($key, 0, 3) == 'dc_') {
+        $dc_name = substr($key, 3);
+        if ($dc_name == 'description') {
+          $val = rotioai_clean_text(implode('|', $val));
+        }
+        else {
+          $val =implode('|', $val);
+        }
+        $data .= '&'.$dc_name.'='.urlencode($val);
       }
-      else {
-        $val =implode('|', $val);
-      }
-      $data .= '&'.$dc_name.'='.urlencode($val);
     }
+    
   }
+
 
   try {
     $headers = array('Content-Type' => 'text/html; charset=utf-8');
@@ -183,6 +186,7 @@ function rotioai_lite_form() {
   }
   $form['query'] = array(
     '#type' => 'textfield', 
+    '#size' => 20,
     '#title' => t('Search'), 
     '#default_value' => $_REQUEST['query'],
   );
