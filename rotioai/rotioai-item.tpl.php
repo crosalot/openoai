@@ -1,5 +1,5 @@
 <div class="roti-search-item">
-  <?php $img = ro_img($item->relation, array()); ?>
+  <?php $img = ro_img($item->relation, array('png', 'gif', 'jpg', 'bmp')); ?>
   <?php if(!$img): ?>
     <?php $img = drupal_get_path('module', 'rotioai').'/images/image-default.png'; ?>
   <?php endif ?>

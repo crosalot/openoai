@@ -72,8 +72,6 @@ function rotioai_nodeapi(&$node, $op, $a3=null, $a4=null) {
 
     switch ($op) {
       case 'insert':
-        rotioai_add_document($node, $ping_url);
-        break;
       case 'update':
         if ($node->status == 1) { // Published
           $_SESSION['after_update'] = TRUE;
@@ -106,22 +104,19 @@ function rotioai_add_document($node, $ping_url) {
           '&repositoryName='.urlencode(variable_get('repository_name', 'opensearch')).
           '&repositoryIdentifier='.urlencode(variable_get('repository_identifier', 'opensearch')).
           '&category='.urlencode(variable_get('oai_category', ''));
-  if ($oai) {
-    foreach ($oai as $key => $val) {
-      if (substr($key, 0, 3) == 'dc_') {
-        $dc_name = substr($key, 3);
-        if ($dc_name == 'description') {
-          $val = rotioai_clean_text(implode('|', $val));
-        }
-        else {
-          $val =implode('|', $val);
-        }
-        $data .= '&'.$dc_name.'='.urlencode($val);
-      }
-    }
-    
-  }
 
+  foreach ($oai as $key => $val) {
+    if (substr($key, 0, 3) == 'dc_') {
+      $dc_name = substr($key, 3);
+      if ($dc_name == 'description') {
+        $val = rotioai_clean_text(implode('|', $val));
+      }
+      else {
+        $val =implode('|', $val);
+      }
+      $data .= '&'.$dc_name.'='.urlencode($val);
+    }
+  }
 
   try {
     $headers = array('Content-Type' => 'text/html; charset=utf-8');
@@ -186,7 +181,6 @@ function rotioai_lite_form() {
   }
   $form['query'] = array(
     '#type' => 'textfield', 
-    '#size' => 20,
     '#title' => t('Search'), 
     '#default_value' => $_REQUEST['query'],
   );
@@ -392,7 +386,9 @@ function rotioai_result() {
   $contents = array();
   if ($items) {
     foreach ($items as $item) {
-      $contents[] = theme('rotioai_item', $item);
+      if (!$item->deleted[0]) {
+        $contents[] = theme('rotioai_item', $item);
+      }
     }
   }
 
