@@ -374,7 +374,9 @@ function rotioai_result() {
     $url .= ($_GET['page'] ? '&start='. ($_GET['page'] * $ipp) : '');
     //$url .= '&facet=true&facet.field=type';
   }
-  print $url;
+  if (!$_REQUEST['raw']) { // Skip form input for pure results.
+    print $url;
+  }
   //exit();
   
   $response = drupal_http_request($url);
@@ -420,7 +422,9 @@ function rotioai_result() {
     $stats = 'Your search resilt did not match any documents.';
   }
 
-  $output .= drupal_get_form('rotioai_form');
+  if (!$_REQUEST['raw']) { // Skip form input for pure results.
+    $output .= drupal_get_form('rotioai_form');
+  }
   $output .= '<div id="rotisearch-result">';
   $output .= $stats;
   $output .= theme('item_list', $contents, NULL, 'ol');

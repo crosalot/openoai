@@ -104,7 +104,7 @@ function ioai_nodeapi(&$node, $op) {
 	              break;
               case 'node':
                 
-                if (!empty($node->$code) || $code == 'path') {
+                if (!empty($node->$code)) {
                   
                   if ($code == 'files') {
                     foreach ($node->$code as $value) {
@@ -118,12 +118,6 @@ function ioai_nodeapi(&$node, $op) {
                       $fullname = $user->profile_fullname? $user->profile_fullname: $user->name;
                       $values[] = ioai_pre_val($dc, $fullname, $field);
                     }
-                  }
-                  elseif ($code == 'nid') {
-                    $values[] = ioai_pre_val($dc, 'node/'.$node->nid, $field);
-                  }
-                  elseif ($code == 'path') {
-                    $values[] = ioai_pre_val($dc, ($node->path? $node->path: 'node/'.$node->nid), $field);
                   }
                   else {
                     $values[] = ioai_pre_val($dc, $node->$code, $field);
