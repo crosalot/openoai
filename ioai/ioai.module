@@ -54,6 +54,26 @@ function ioai_menu() {
       'file' => 'ioai.admin.inc',
     );
   }
+  if (variable_get('ioai_allow_comment', FALSE)) {
+    $items['admin/settings/ioai/comment'] = array(
+      'title' => t('Comment'),
+      'type' => MENU_LOCAL_TASK,
+      'access arguments' => array('administer ioai'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ioai_comment_settings_form'),
+      'file' => 'ioai.admin.inc',
+    );
+  }
+  if (variable_get('ioai_allow_user', FALSE)) {
+    $items['admin/settings/ioai/user'] = array(
+      'title' => t('User'),
+      'type' => MENU_LOCAL_TASK,
+      'access arguments' => array('administer ioai'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ioai_user_settings_form'),
+      'file' => 'ioai.admin.inc',
+    );
+  }
   $items['oai'] = array(
     'title' => 'OAI',
     'page callback' => 'ioai_response',
@@ -323,7 +343,7 @@ function ioai_get_node_map() {
   return array(
     'node:nid'       => 'nid'       ,
     'node:title'     => 'title'     ,
-    'node:teaser'    => 'teaser'      , 
+    'node:teaser'    => 'teaser'    , 
     'node:body'      => 'body'      ,    
     'node:type'      => 'type'      ,    
     'node:language'  => 'language'  ,    
@@ -337,18 +357,59 @@ function ioai_get_node_map() {
     'node:name'      => 'name'      ,    
     'node:picture'   => 'picture'   ,    
     'node:path'      => 'path'      ,    
-    'node:files'     => 'files'      ,    
+    'node:files'     => 'files'     ,    
+  );
+}
+
+function ioai_get_comment_map() {
+  $list =  array(
+    'comment:cid'       => 'cid'      ,
+    'comment:pid'       => 'pid'      ,
+    'comment:nid'       => 'nid'      , 
+    'comment:uid'       => 'uid'      ,    
+    'comment:subject'   => 'subject'  ,    
+    'comment:comment'   => 'comment'  ,    
+    'comment:hostname'  => 'hostname' ,    
+    'comment:timestamp' => 'timestamp',    
+    'comment:status'    => 'status'   ,    
+    'comment:format'    => 'format'   ,    
+    'comment:thread'    => 'thread'   ,    
+    'comment:name'      => 'name'     ,    
+    'comment:mail'      => 'mail'     ,    
+  );
+  if(module_exists('comment_upload')) {
+    $list['comment:files'] = 'files';
+  }
+}
+
+function ioai_get_user_map() {
+  return array(
+    'user:uid'              => 'uid'             ,
+    'user:name'             => 'name'            ,
+    'user:pass'             => 'pass'            , 
+    'user:mail'             => 'mail'            ,    
+    'user:mode'             => 'mode'            ,    
+    'user:sort'             => 'sort'            ,    
+    'user:threshold'        => 'threshold'       ,    
+    'user:theme'            => 'theme'           ,    
+    'user:signature'        => 'signature'       ,    
+    'user:signature_format' => 'signature_format',    
+    'user:created'          => 'created'         ,    
+    'user:access'           => 'access'          ,    
+    'user:login'            => 'login'           ,    
+    'user:status'           => 'status'          ,    
+    'user:timezone'         => 'timezone'        ,    
+    'user:language'         => 'language'        ,    
+    'user:picture'          => 'picture'         ,    
+    'user:init'             => 'init'            ,    
+    'user:roles'            => 'roles'           ,    
+    'user:profile_name'     => 'profile_name'    ,    
+    'user:profile_lastname' => 'profile_lastname',    
   );
 }
 
 function ioai_get_dc() {
   return array(
-    //'url'             ,
-    //'enterdate'       ,
-    //'oai_identifier'  ,
-    //'oai_set'         ,
-    //'datestamp'       ,
-    //'deleted'         ,
     'dc_title'        ,
     'dc_creator'      ,
     'dc_subject'      ,
@@ -405,6 +466,7 @@ function ioai_delete_token($tid) {
 }
 
 function ioai_pre_val($dc, $val, $field='') {
+  static $gen_url_fields;
   switch ($dc) {
     case 'dc_date':
       if (is_numeric($val)) {
@@ -430,14 +492,32 @@ function ioai_pre_val($dc, $val, $field='') {
       }
       break;
   }
-  
-  $gen_url_fields = array_merge(array('node:nid', 'node:path', 'node:url', 'node:files'), array_values(array_filter(variable_get('url_fields', array()))));
 
-  if (in_array($field, $gen_url_fields)) {
-    $val = ioai_build_full_url($val);
-
+  if (!isset($gen_url_fields)) {
+    $default_url_fields = array(
+      // node
+      'node:nid'         => 'node', 
+      'node:path'        => 'node', 
+      'node:url'         => 'node',
+      'node:files'       => 'node',
+      'node:uid'         => 'user',
+      // comment
+      'comment:cid'      => 'comment',
+      'comment:pid'      => 'comment',
+      'comment:nid'      => 'node',
+      'comment:url'      => 'comment',
+      'comment:files'    => 'comment',
+      // user
+      'user:uid'         => 'user',
+      'user:picture'     => 'user',
+      'user:url'         => 'user',
+    );
+    $gen_url_fields = array_merge($default_url_fields, array_filter(variable_get('url_fields', array())));
   }
-  
+
+  if (in_array($field, array_keys($gen_url_fields))) {
+    $val = ioai_build_full_url($val, $gen_url_fields[$field]);
+  }
   return $val;
 }
 
@@ -492,10 +572,23 @@ function ioai_node_get_sets($nid) {
   return implode(':', $set);
 }
 
-function ioai_build_full_url($url) {
+function ioai_build_full_url($url, $type='node') {
   global $repositoryIdentifier;
   
-  $url = is_numeric($url)? drupal_get_path_alias('node/'.$url): $url;
+  $type = $type? $type: 'node';
+
+  if(is_numeric($url)) {
+    if($type == 'comment') {
+      $comment = _comment_load($url);
+      $url = drupal_get_path_alias('node/'.$comment->nid).'#comment-'.$comment->cid;
+    }
+    elseif($type == 'user') {
+      $url = drupal_get_path_alias('user/'.$url);
+    }
+    else {
+      $url = drupal_get_path_alias('node/'.$url);
+    }
+  }
   
   $url = parse_url($url);
   
@@ -506,4 +599,130 @@ function ioai_build_full_url($url) {
   $url['fragment'] = $url['fragment']? '#'.$url['fragment']: '';
   return $url['scheme'].'://'.$url['host'].$url['path'].$url['query'].$url['fragment'];
   
+}
+
+function ioai_build_comment(&$comment) {
+  if (module_exists('comment_upload')) {
+    $comment->files = comment_upload_load_files($comment->cid);
+    $preset = variable_get('ioai_preset', FALSE);
+  }
+  // Fix
+  $comment->oai['deleted'] = !$comment->status? 'false': 'true';
+  $comment->oai['url'] = $comment->cid;
+  $comment->oai['oai_identifier'] = $shortprefix.'comment/'.$comment->cid;
+  $comment->oai['enterdate'] = ioai_pre_val('dc_date', $comment->timestamp);
+  $comment->oai['datestamp'] = ioai_pre_val('dc_date', $comment->timestamp);
+  $comment->oai['sets'] = ioai_node_get_sets($comment->nid);
+
+  
+  // Custom
+  foreach (ioai_get_dc() as $dc) {
+    $values = array();
+    foreach (ioai_get_current_map('comment', $dc, TRUE) as $field) {
+      list($group, $code, $val) = explode(':', $field);
+  	    
+      switch ($group) {
+        case 'global':
+  	  if (!empty($val)) {
+  	    $values[] = ioai_pre_val($dc, $val, $field);
+  	  }
+  	  break;
+        case 'comment':
+  	
+          if (!empty($comment->$code)) {
+            
+            if ($code == 'files') {
+              foreach ($comment->$code as $value) {
+                $info = image_get_info($value['filepath']);
+                if ($preset && $info && !empty($info['extension'])) {
+	          $value['filepath'] = imagecache_create_url($preset, $value['filepath']);
+                }
+	        $values[] = ioai_pre_val($dc, $value['filepath'], $field);
+	      }
+            }
+            elseif ($code == 'name') {
+              
+              if (module_exists('profile')) {
+                $user = user_load($comment->uid);
+                $fullname = $user->profile_fullname? $user->profile_fullname: $user->name;
+                $values[] = ioai_pre_val($dc, $fullname, $field);
+              }
+            }
+            else {
+              $values[] = ioai_pre_val($dc, $comment->$code, $field);
+            }
+          }
+          break;
+      }
+      if (!empty($values)) {
+        $comment->oai[$dc] = $values;
+      }
+    }
+  }
+
+}
+
+function ioai_build_user(&$user) {
+  $user = (object) $user;
+  $preset = variable_get('ioai_preset', FALSE);
+  // Fix
+  $user->oai['deleted'] = $user->status? 'false': 'true';
+  $user->oai['url'] = $user->uid;
+  $user->oai['oai_identifier'] = $shortprefix.'user/'.$user->cid;
+  $user->oai['enterdate'] = ioai_pre_val('dc_date', $user->created);
+  $user->oai['datestamp'] = ioai_pre_val('dc_date', $user->created);
+  $user->oai['sets'] = '';
+
+  
+  // Custom
+  foreach (ioai_get_dc() as $dc) {
+    $values = array();
+    foreach (ioai_get_current_map('user', $dc, TRUE) as $field) {
+      list($group, $code, $val) = explode(':', $field);
+  	    
+      switch ($group) {
+        case 'global':
+  	  if (!empty($val)) {
+  	    $values[] = ioai_pre_val($dc, $val, $field);
+  	  }
+  	  break;
+        case 'user':
+  	
+          if (!empty($user->$code)) {
+            
+            if ($code == 'picture') {
+              $info = image_get_info($user->$code);
+              if ($preset && $info && !empty($info['extension'])) {
+	        $user->$code = imagecache_create_url($preset, $user->$code);
+              }
+	      $values[] = ioai_pre_val($dc, $user->$code, $field);
+            }
+            elseif ($code == 'name') {
+              if (module_exists('profile')) {
+                $fullname = $user->profile_fullname? $user->profile_fullname: $user->name;
+                $values[] = ioai_pre_val($dc, $fullname, $field);
+              }
+            }
+            else {
+              $values[] = ioai_pre_val($dc, $user->$code, $field);
+            }
+          }
+          break;
+      }
+      if (!empty($values)) {
+        $user->oai[$dc] = $values;
+      }
+    }
+  }
+
+}
+function ioai_init() {
+  /*
+  $comment = _comment_load(2898);
+  print_r($comment);
+  */
+  /*
+  $user = user_load(array('name' => 'admin'));
+  print_r($user);
+  */
 }

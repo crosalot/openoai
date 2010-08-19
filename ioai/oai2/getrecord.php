@@ -66,13 +66,25 @@ if (!isset($args['metadataPrefix'])) {
 // remove the OAI part to get the identifier
 if (empty($errors)) {
 	
-	$id = str_replace($oaiprefix, '', $identifier);
+	$suffix = explode('/', str_replace($shortprefix, '', $identifier));
+	$type = $suffix[0];
+	$id = $suffix[1];
 
 	if ($id == '') {
 		$errors .= oai_error('idDoesNotExist', '', $identifier);
 	}
 
-	$res = node_load($id);
+	if ($type == 'node') {
+		$res = node_load($id);
+	}
+	elseif ($type == 'user') {
+		$res = user_load($id);
+		ioai_build_user($res);
+	}
+	elseif ($type == 'comment') {
+		$res = _comment_load($id);
+		ioai_build_comment($res);
+	}
 	if ($res) {
     $num_rows = 1;
     $res = $res->oai;
@@ -104,7 +116,7 @@ $output .= "<GetRecord>";
 if ($num_rows) {
 	$record = $res;
 	
-	$identifier = $oaiprefix.$record[$SQL['identifier']];;
+	$identifier = $shortprefix.$type.'/'.$record[$SQL['identifier']];;
   
   $datestamp = formatDatestamp($record[$SQL['datestamp']]); 
 

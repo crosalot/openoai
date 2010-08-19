@@ -14,6 +14,7 @@ global $METADATAFORMATS;
 global $XMLSCHEMA;
 global $ioai_mpath;
 global $oaiprefix;
+global $shortprefix;
 global $MY_URI;
 global $oaiprefix;
 global $deletedRecord;

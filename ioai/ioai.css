@@ -11,7 +11,7 @@
 	display: none;
 }
 
-#ioai-type-settings-form .oai-wrap {
+.oai-wrap {
 	float: left;
 	margin-right: 20px;
 	position: relative;

@@ -1,5 +1,74 @@
 <?php
 
+function ioai_settings_form($type_name, $options) {
+  drupal_add_css(drupal_get_path('module', 'ioai').'/ioai.css');
+  drupal_add_js(drupal_get_path('module', 'ioai').'/ioai.js');
+  
+  foreach (ioai_get_dc() as $dc) {
+    $form[$dc.'-before'] = array('#value' => '<div class="oai-wrap">');
+    $form[$dc] = array(
+      '#title' => $dc,
+      '#type' => 'select',
+      '#options' => $options,
+      '#multiple' => TRUE,
+      '#default_value' => ioai_get_current_map($type_name, $dc),
+    );
+    $form[$dc.'_custom'] = array(
+      '#type' => 'textfield', 
+      '#default_value' => '',
+      '#size' => 20, 
+      '#attributes' => array('class' => 'global-field custom'),
+      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'custom')
+    );
+    $form[$dc.'_type'] = array(
+      '#type' => 'select', 
+      '#options' => ioai_get_global_types(), 
+      '#default_value' => '',
+      '#attributes' => array('class' => 'global-field type'),
+      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'type')
+    );
+    $form[$dc.'_format'] = array(
+      '#type' => 'select', 
+      '#options' => ioai_get_global_formats(),
+      '#default_value' => '',
+      '#attributes' => array('class' => 'global-field format'.''),
+      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'format')
+    );
+    $form[$dc.'-after'] = array('#value' => '</div>');
+  }
+  
+  $form['type'] = array('#type' => 'hidden', '#value' => $type_name);
+  $form['submit'] = array('#type' => 'submit', '#value' => 'Submit');
+  return $form;
+}
+
+function ioai_settings_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $type = $values['type'];
+  
+  unset(
+    $values['type']          ,
+    $values['op']            ,
+    $values['submit']        ,
+    $values['form_build_id'] ,
+    $values['form_token']    ,
+    $values['form_id']
+  );
+  
+  db_query("DELETE FROM {ioai_map} WHERE type = '%s'", $type);
+  foreach ($values as $dc => $fields) {
+    if (is_array($fields)) {
+      foreach ($fields as $field) {
+        list($group, $code) = explode(':', $field);
+        if ($group == 'global') {
+          $field .= ':'.$values[$dc.'_'.$code];
+        }
+        db_query("INSERT INTO {ioai_map} VALUES ('%s', '%s', '%s')", $dc, $field, $type);
+      }
+    }
+  }
+}
+
 function ioai_global_settings_form() {
   $form['#submit'][] = 'ioai_global_settings_form_submit';
   
@@ -26,6 +95,18 @@ function ioai_global_settings_form() {
     '#type' => 'checkboxes',
     '#options' => node_get_types('names'),
     '#default_value' => variable_get('ioai_allow_type', array()),
+  );
+  
+  $form['ioai_allow_comment'] = array(
+    '#title' => t('Comment'),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('ioai_allow_comment', FALSE),
+  );
+  
+  $form['ioai_allow_user'] = array(
+    '#title' => t('User'),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('ioai_allow_user', FALSE),
   );
   
   $options[0] = t('None');
@@ -82,10 +163,9 @@ function ioai_clear_cache() {
   menu_rebuild();
 }
 
+// NODE SETTINGS =================================================
 function ioai_type_settings_form($form_state, $type_name) {
   $type = content_types($type_name);
-  drupal_add_css(drupal_get_path('module', 'ioai').'/ioai.css');
-  drupal_add_js(drupal_get_path('module', 'ioai').'/ioai.js');
   
   // Global
   $options['Global'] = ioai_get_global_map();
@@ -103,70 +183,44 @@ function ioai_type_settings_form($form_state, $type_name) {
   foreach ($fields as $field) {
     $options['Field']['field:'.$field['field_name']] = $field['widget']['label']. ': ('.$field['field_name'].')';    
   }
-  
-  foreach (ioai_get_dc() as $dc) {
-    $form[$dc.'-before'] = array('#value' => '<div class="oai-wrap">');
-    $form[$dc] = array(
-      '#title' => $dc,
-      '#type' => 'select',
-      '#options' => $options,
-      '#multiple' => TRUE,
-      '#default_value' => ioai_get_current_map($type_name, $dc),
-    );
-    $form[$dc.'_custom'] = array(
-      '#type' => 'textfield', 
-      '#default_value' => '',
-      '#size' => 20, 
-      '#attributes' => array('class' => 'global-field custom'),
-      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'custom')
-    );
-    $form[$dc.'_type'] = array(
-      '#type' => 'select', 
-      '#options' => ioai_get_global_types(), 
-      '#default_value' => '',
-      '#attributes' => array('class' => 'global-field type'),
-      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'type')
-    );
-    $form[$dc.'_format'] = array(
-      '#type' => 'select', 
-      '#options' => ioai_get_global_formats(),
-      '#default_value' => '',
-      '#attributes' => array('class' => 'global-field format'.''),
-      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'format')
-    );
-    $form[$dc.'-after'] = array('#value' => '</div>');
-  }
-  
-  $form['type'] = array('#type' => 'hidden', '#value' => $type_name);
-  $form['submit'] = array('#type' => 'submit', '#value' => 'Submit');
+
+  $form = ioai_settings_form($type_name, $options);
   
   return $form;
 }
 
 function ioai_type_settings_form_submit($form, &$form_state) {
-  $values = $form_state['values'];
-  $type = $values['type'];
-  
-  unset(
-    $values['type']          ,
-    $values['op']            ,
-    $values['submit']        ,
-    $values['form_build_id'] ,
-    $values['form_token']    ,
-    $values['form_id']
-  );
-  
-  db_query("DELETE FROM {ioai_map} WHERE type = '%s'", $type);
-  foreach ($values as $dc => $fields) {
-    if (is_array($fields)) {
-      foreach ($fields as $field) {
-        list($group, $code) = explode(':', $field);
-        if ($group == 'global') {
-          $field .= ':'.$values[$dc.'_'.$code];
-        }
-        db_query("INSERT INTO {ioai_map} VALUES ('%s', '%s', '%s')", $dc, $field, $type);
-      }
-    }
-  }
+  ioai_settings_form_submit($form, &$form_state);
 }
 
+// COMMENT SETTINGS ===============================================
+function ioai_comment_settings_form() {
+  // Global
+  $options['Global'] = ioai_get_global_map();
+  
+  // Node
+  $options['Comment'] = ioai_get_comment_map();
+  
+  $form = ioai_settings_form('comment', $options);
+  
+  return $form;
+}
+function ioai_comment_settings_form_submit($form, &$form_state) {
+  ioai_settings_form_submit($form, &$form_state);
+}
+
+// USER SETTINGS ===================================================
+function ioai_user_settings_form() {
+  // Global
+  $options['Global'] = ioai_get_global_map();
+  
+  // Node
+  $options['User'] = ioai_get_user_map();
+  
+  $form = ioai_settings_form('user', $options);
+  
+  return $form;
+}
+function ioai_user_settings_form_submit($form, &$form_state) {
+  ioai_settings_form_submit($form, &$form_state);
+}

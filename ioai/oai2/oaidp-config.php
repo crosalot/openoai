@@ -226,6 +226,7 @@ $idPrefix = 'node/';
 // oai:$repositoryIdentifier:$idPrefix$SQL['identifier']
 // should not be changed
 $oaiprefix = "oai".$delimiter.$repositoryIdentifier.$delimiter.$idPrefix; 
+$shortprefix = 'oai'.$delimiter.$repositoryIdentifier.$delimiter;
 
 // adjust anIdentifier with sample contents an identifier
 $sampleIdentifier     = $oaiprefix.'anIdentifier';
