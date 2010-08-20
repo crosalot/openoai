@@ -224,7 +224,7 @@ function ioai_comment_settings_form() {
   // Global
   $options['Global'] = ioai_get_global_map();
   
-  // Node
+  // Comment
   $options['Comment'] = ioai_get_comment_map();
   
   $form = ioai_settings_form('comment', $options);
@@ -240,7 +240,7 @@ function ioai_user_settings_form() {
   // Global
   $options['Global'] = ioai_get_global_map();
   
-  // Node
+  // User
   $options['User'] = ioai_get_user_map();
   
   $form = ioai_settings_form('user', $options);

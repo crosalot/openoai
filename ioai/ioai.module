@@ -380,6 +380,7 @@ function ioai_get_comment_map() {
   if(module_exists('comment_upload')) {
     $list['comment:files'] = 'files';
   }
+  return $list;
 }
 
 function ioai_get_user_map() {
