@@ -244,6 +244,8 @@ $SQL['deleted'] = 'status';
 // the name of the column where you store sets
 $SQL['set'] = 'sets';
 
+$SQL['type'] = 'type';
+
 // Here are a couple of queries which might need to be adjusted to 
 // your needs. Normally, if you have correctly named the columns above,
 // this does not need to be done.
@@ -255,7 +257,7 @@ $SQL['set'] = 'sets';
 function selectallQuery ($id = '')
 {
 	global $SQL;
-	$query = 'SELECT nid as '.$SQL['identifier'].', datestamp as '.$SQL['datestamp'].', '.$SQL['deleted'].' FROM {ioai_node} AS node WHERE ';
+	$query = 'SELECT nid as '.$SQL['identifier'].', datestamp as '.$SQL['datestamp'].', '.$SQL['type'].', '.$SQL['deleted'].' FROM {ioai_node} AS node WHERE ';
 	if ($id == '') {
 		$query .= $SQL['id_column'].' = '.$SQL['id_column'];
 	}
@@ -271,16 +273,21 @@ function idQuery ($id = '')
 	global $SQL;
 	global $oaiprefix;
 	global $args;
+	global $shortprefix;
 
 	if ($SQL['set'] != '') {
-		$query = 'select concat("'.$oaiprefix.'", nid) as '.$SQL['identifier'].', datestamp as '.$SQL['datestamp'].', '.$SQL['deleted'].', '.$SQL['set'].' FROM {ioai_node} as node WHERE ';
+		$query = 'select nid as '.$SQL['identifier'].', datestamp as '.$SQL['datestamp'].', '.$SQL['type'].', '.$SQL['deleted'].', '.$SQL['set'].' FROM {ioai_node} as node WHERE ';
 	}
 	
 	if ($id == '') {
 		$query .= $SQL['id_column'].' = '.$SQL['id_column'];
 	}
 	else {
-		$query .= $SQL['id_column']." = $id";
+		$suffix = explode('/', str_replace($shortprefix, '', $id));
+		$type = $suffix[0];
+		$id = $suffix[1];
+                //print $id;
+		$query .= $SQL['id_column']." = $id AND type = '$type'";
 	}
 
 	return $query;

@@ -60,7 +60,7 @@ if (isset($args['identifier'])) {
 	$id = str_replace($oaiprefix, '', $identifier); 
 
 	$query = idQuery($id);
-	$res = db_query($query);
+	$res = db_fetch_object(db_query($query));
 
 	if (empty($res)) {
 		$errors .= oai_error('idDoesNotExist', 'identifier', $identifier);

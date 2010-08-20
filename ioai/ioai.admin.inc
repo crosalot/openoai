@@ -145,6 +145,8 @@ function ioai_global_settings_form_submit($form, $form_state) {
   array_walk($delete_type, '_add_quote');
   array_walk($add_type, '_add_quote');
   
+
+  // NODE
   if (!empty($delete_type)) {
     db_query("DELETE FROM {ioai_node} WHERE type IN (".implode(',', $delete_type).") AND status != 0");
   }
@@ -155,6 +157,30 @@ function ioai_global_settings_form_submit($form, $form_state) {
       db_query("UPDATE {ioai_node} SET sets = '%s' WHERE nid = %d", ioai_node_get_sets($node->nid), $node->nid);
     }
     
+  }
+
+  // COMMENT
+  $allow_comment = $form_state['values']['ioai_allow_comment'];
+  $last_allow_comment = variable_get('ioai_allow_comment', FALSE);
+  if ($allow_comment != $last_allow_comment) {
+    if ($allow_comment) {
+      db_query("INSERT INTO {ioai_node} SELECT comment.cid, comment.timestamp, 'comment', NOT comment.status, NULL FROM {comments} comment ON DUPLICATE KEY UPDATE datestamp = comment.timestamp, status = NOT comment.status");
+    }
+    else {
+      db_query("DELETE FROM {ioai_node} WHERE type = 'comment' AND status != 0");
+    }
+  }
+  
+  // USER
+  $allow_user= $form_state['values']['ioai_allow_user'];
+  $last_allow_user = variable_get('ioai_allow_user', FALSE);
+  if ($allow_user != $last_allow_user) {
+    if ($allow_user) {
+      db_query("INSERT INTO {ioai_node} SELECT user.uid, user.created, 'user', user.status, NULL FROM {users} user ON DUPLICATE KEY UPDATE datestamp = user.created, status = user.status");
+    }
+    else {
+      db_query("DELETE FROM {ioai_node} WHERE type = 'user' AND status != 0");
+    }
   }
   
 }

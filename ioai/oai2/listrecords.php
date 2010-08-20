@@ -184,7 +184,7 @@ while ($countrec++ < $maxrec) {
 	// the second condition is due to a bug in PEAR
 	$record = db_fetch_array($res); 
 
-	$identifier = $oaiprefix.$record[$SQL['identifier']]; 
+	$identifier = $shortprefix.$record[$SQL['type']].'/'.$record[$SQL['identifier']]; 
 	$datestamp = formatDatestamp($record[$SQL['datestamp']]);
 	 
 	if (isset($record[$SQL['deleted']]) && ($record[$SQL['deleted']] == 0) &&
@@ -194,7 +194,23 @@ while ($countrec++ < $maxrec) {
 		$status_deleted = FALSE;
 	}
 
-	$record = node_load($record[$SQL['identifier']]);
+        $type = $record[$SQL['type']];
+        $id = $record[$SQL['identifier']];
+
+        if ($type == 'node') {
+                $record = node_load($id);
+        }
+        elseif ($type == 'user') {
+                $record = user_load($id);
+                ioai_build_user($record);
+        }
+        elseif ($type == 'comment') {
+                $record = _comment_load($id);
+                ioai_build_comment($record);
+        }
+
+
+	//$record = node_load($record[$SQL['identifier']]);
 	
 	$record = $record->oai;
 

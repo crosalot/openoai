@@ -181,7 +181,9 @@ while ($countrec++ < $maxrec) {
 	$record = db_fetch_array($res); 
 
 	$identifier = $oaiprefix.$record[$SQL['identifier']]; 
+	$identifier = $shortprefix.$record['type'].'/'.$record[$SQL['identifier']];
 	$datestamp = formatDatestamp($record[$SQL['datestamp']]); 
+
 
 	if (isset($record[$SQL['deleted']]) && ($record[$SQL['deleted']] == 0) && 
 		($deletedRecord == 'transient' || $deletedRecord == 'persistent')) {
