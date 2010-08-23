@@ -183,8 +183,9 @@ $countrec  = 0;
 while ($countrec++ < $maxrec) {
 	// the second condition is due to a bug in PEAR
 	$record = db_fetch_array($res); 
+	$type = in_array($record[$SQL['type']], array('comment', 'user'))? $record[$SQL['type']]: 'node';
 
-	$identifier = $shortprefix.$record[$SQL['type']].'/'.$record[$SQL['identifier']]; 
+	$identifier = $shortprefix.$type.'/'.$record[$SQL['identifier']]; 
 	$datestamp = formatDatestamp($record[$SQL['datestamp']]);
 	 
 	if (isset($record[$SQL['deleted']]) && ($record[$SQL['deleted']] == 0) &&
@@ -194,7 +195,6 @@ while ($countrec++ < $maxrec) {
 		$status_deleted = FALSE;
 	}
 
-        $type = $record[$SQL['type']];
         $id = $record[$SQL['identifier']];
 
         if ($type == 'node') {

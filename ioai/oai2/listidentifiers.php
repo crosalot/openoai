@@ -180,8 +180,8 @@ while ($countrec++ < $maxrec) {
 	// the second condition is due to a bug in PEAR
 	$record = db_fetch_array($res); 
 
-	$identifier = $oaiprefix.$record[$SQL['identifier']]; 
-	$identifier = $shortprefix.$record['type'].'/'.$record[$SQL['identifier']];
+        $type = in_array($record[$SQL['type']], array('comment', 'user'))? $record[$SQL['type']]: 'node';
+	$identifier = $shortprefix.$type.'/'.$record[$SQL['identifier']];
 	$datestamp = formatDatestamp($record[$SQL['datestamp']]); 
 
 

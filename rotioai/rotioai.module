@@ -74,7 +74,7 @@ function rotioai_nodeapi(&$node, $op, $a3=null, $a4=null) {
       case 'insert':
       case 'update':
         if ($node->status == 1) { // Published
-          $_SESSION['after_update'] = TRUE;
+          $_SESSION['after_update'] = $node->nid;
         } else {
           rotioai_delete_document($node, $ping_url);
         }
@@ -82,14 +82,32 @@ function rotioai_nodeapi(&$node, $op, $a3=null, $a4=null) {
       case 'delete':
         rotioai_delete_document($node, $ping_url);
         break;
-      case 'view':
+      /*
+      case 'load':
         // Cheat: taxonomy_node_get_terms() doesn't update when $op=update
         if (isset($_SESSION['after_update']) && $_SESSION['after_update'] == TRUE) {
           rotioai_add_document($node, $ping_url);
           unset($_SESSION['after_update']);
         }
         break;
+      */
     }
+  }
+}
+
+function rotioai_init() {
+  // Cheat: taxonomy_node_get_terms() doesn't update when $op=update
+  if (isset($_SESSION['after_update'])) {
+    $node = node_load($_SESSION['after_update']);
+    if($node) {
+      //drupal_set_message(print_r($node, 1));
+      $ping_url = variable_get('rotioai_url', ROTIOAI_DEFAULT_URL);
+      if (substr($ping_url, -1) != "/") {
+        $ping_url .= "/";
+      }
+      rotioai_add_document($node, $ping_url);
+    }
+    unset($_SESSION['after_update']);
   }
 }
 
@@ -121,7 +139,7 @@ function rotioai_add_document($node, $ping_url) {
   try {
     $headers = array('Content-Type' => 'text/html; charset=utf-8');
     $resp = drupal_http_request($ping_url, $headers, 'POST', $data);
-    //drupal_set_message('<pre>'.print_r($ping_url, TRUE).'</pre>');
+    //drupal_set_message('<pre>'.print_r($data, TRUE).'</pre>');
   } catch (Exception $e) {
     watchdog('actions', $e->getMessage(), array(), WATCHDOG_ERROR);
   }
