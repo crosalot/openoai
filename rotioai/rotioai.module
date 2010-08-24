@@ -43,6 +43,13 @@ function rotioai_menu() {
   return $items;
 }
 
+function rotioai_get_ping_url() {
+  $ping_url = variable_get('rotioai_url', ROTIOAI_DEFAULT_URL);
+  if (substr($ping_url, -1) != "/") {
+    $ping_url .= "/";
+  }
+  return $ping_url;
+}
 
 /**
  * Implementation of hook_nodeapi().
@@ -65,10 +72,7 @@ function rotioai_nodeapi(&$node, $op, $a3=null, $a4=null) {
       return;
     }
 
-    $ping_url = variable_get('rotioai_url', ROTIOAI_DEFAULT_URL);
-    if (substr($ping_url, -1) != "/") {
-      $ping_url .= "/";
-    }
+    $ping_url = rotioai_get_ping_url();
 
     switch ($op) {
       case 'insert':
@@ -101,13 +105,24 @@ function rotioai_init() {
     $node = node_load($_SESSION['after_update']);
     if($node) {
       //drupal_set_message(print_r($node, 1));
-      $ping_url = variable_get('rotioai_url', ROTIOAI_DEFAULT_URL);
-      if (substr($ping_url, -1) != "/") {
-        $ping_url .= "/";
-      }
+      $ping_url = rotioai_get_ping_url();
       rotioai_add_document($node, $ping_url);
     }
     unset($_SESSION['after_update']);
+  }
+}
+
+function rotioai_comment(&$a1, $op) {
+  if (variable_get('ioai_allow_comment', FALSE)) {
+    $ping_url = rotioai_get_ping_url();
+    $comment = (object) $a1;
+    ioai_build_comment($comment);
+    if ($op == 'insert' || $op == 'update') {
+      rotioai_add_document($comment, $ping_url);
+    }
+    elseif($op == 'delete') {
+      rotioai_delete_document($comment, $ping_url);
+    }
   }
 }
 
