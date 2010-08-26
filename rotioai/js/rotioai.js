@@ -28,7 +28,7 @@ $(document).ready(function() {
 		e.preventDefault();
 		fetch(0, null, true);
 	});
-	
+
 	var get_fields = function() {
 	  var fields = {};
     $('#advanced-search .form-item').each(function (i, item) {
@@ -120,6 +120,11 @@ $(document).ready(function() {
   if (get_fields() || query) {
     fetch(0, null, true);
   }
+  if (Drupal.settings.rotioai.query != undefined) {
+        $('#edit-query').val(Drupal.settings.rotioai.query);
+        $('#rotioai-form').submit();
+  }
+	
 	
 });
 

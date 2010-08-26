@@ -212,10 +212,10 @@ function rotioai_lite_form() {
       '#default_value' => $_REQUEST['quick'],
     );
   }
-  $form['query'] = array(
+  $form['query_block'] = array(
     '#type' => 'textfield', 
     '#title' => t('Search'), 
-    '#default_value' => $_REQUEST['query'],
+    //'#default_value' => $_REQUEST['query_block'],
   );
   $form['submit'] = array(
     '#type' => 'submit', 
@@ -223,6 +223,20 @@ function rotioai_lite_form() {
   );
   return $form;
 }
+
+/**
+ * Roti lite form search submit.
+ */
+function rotioai_lite_form_submit($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+  $settings = array(
+    'rotioai' => array(
+      'query' => $form_state['values']['query_block'],
+    ),
+  );
+  drupal_add_js($settings, 'setting');
+}
+
 /**
  * Implementation of hook_form().
  */
@@ -452,7 +466,7 @@ function rotioai_result() {
       $query = substr($query, 0, -2);
     }
     //$stats = 'Your search - <strong>'. $query .'</strong> - did not match any documents.';
-    $stats = 'Your search resilt did not match any documents.';
+    $stats = 'Your search result did not match any documents.';
   }
 
   if (!$_REQUEST['raw']) { // Skip form input for pure results.
@@ -467,7 +481,7 @@ function rotioai_result() {
 }
 
 /**
- * Implementation of hook_form().
+ * Implementation of hook_block().
  */
 function rotioai_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
