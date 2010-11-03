@@ -145,7 +145,7 @@ function ioai_nodeapi(&$node, $op) {
                 }
 	              break;
               case 'taxonomy':
-	              foreach (taxonomy_node_get_terms_by_vocabulary($node, $code, $field) as $term) {
+	              foreach (taxonomy_node_get_terms_by_vocabulary($node, $code) as $term) {
 	                
 	                if (!empty($term->name)) {
 	                  $values[] = ioai_pre_val($dc, $term->name, $field);
