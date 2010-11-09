@@ -108,6 +108,24 @@ function ioai_global_settings_form() {
     '#type' => 'checkbox',
     '#default_value' => variable_get('ioai_allow_user', FALSE),
   );
+
+  $form['ioai_allow_term'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Allow term'
+  );
+  $form['ioai_allow_term']['ioai_allow_term_method'] = array(
+    '#type' => 'radios',
+    '#title' => 'Method',
+    '#options' => array(0 => 'exclude', 1 => 'include'),
+    '#default_value' => variable_get('ioai_allow_term_method', 0),
+  );
+  $form['ioai_allow_term']['ioai_allow_term_term']['#tree'] = TRUE;
+  $value = variable_get('ioai_allow_term_term', array());
+  foreach (taxonomy_get_vocabularies() as $vid => $vocab) {
+    $form['ioai_allow_term']['ioai_allow_term_term'][$vid] = taxonomy_form($vid, $value[$vid]);
+    $form['ioai_allow_term']['ioai_allow_term_term'][$vid]['#multiple'] = TRUE;
+    $form['ioai_allow_term']['ioai_allow_term_term'][$vid]['#required'] = FALSE;
+  }
   
   $options[0] = t('None');
   foreach (taxonomy_get_vocabularies() as $voc) {
@@ -146,12 +164,21 @@ function ioai_global_settings_form_submit($form, $form_state) {
   array_walk($add_type, '_add_quote');
   
 
+  $term_include = $form_state['values']['ioai_allow_term_method']? ' NOT': '';
+  $terms = $form_state['values']['ioai_allow_term_term'];
+  $tm = array();
+  foreach ($terms as $vid => $term) {
+    $tm = array_merge($tm, $term);
+  }
+  $tm = array_filter($tm);
+  
+
   // NODE
   if (!empty($delete_type)) {
     db_query("DELETE FROM {ioai_node} WHERE type IN (".implode(',', $delete_type).") AND status != 0");
   }
   if (!empty($add_type)) {
-    db_query("INSERT INTO {ioai_node} SELECT node.nid, node.changed, node.type, node.status, NULL FROM {node} node WHERE node.type IN (".implode(',', $add_type).") ON DUPLICATE KEY UPDATE datestamp = node.changed, status = node.status");
+    db_query("INSERT INTO {ioai_node} SELECT node.nid, node.changed, node.type, node.status, NULL FROM {node} node LEFT JOIN {term_node} term_node ON node.nid = term_node.nid AND term_node.tid IN (".implode(',', $tm).") WHERE node.type IN (".implode(',', $add_type).") AND term_node.tid IS".$term_include." NULL ON DUPLICATE KEY UPDATE datestamp = node.changed, status = node.status");
     $res = db_query("SELECT nid FROM {ioai_node} WHERE status != 0");
     while ($node = db_fetch_object($res)) {
       db_query("UPDATE {ioai_node} SET sets = '%s' WHERE nid = %d", ioai_node_get_sets($node->nid), $node->nid);

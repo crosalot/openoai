@@ -91,13 +91,28 @@ function db_num_rows($result='') {
   return pg_num_rows($last_result);
 }
 
+function ioai_node_allow($node) {
+  $intype = in_array($node->type, array_filter(variable_get('ioai_allow_type', array())));
+  $method = variable_get('ioai_allow_term_method', 0);
+  $value = variable_get('ioai_allow_term_term', array());
+
+  if ($node->taxonomy) {
+    foreach($node->taxonomy as $tid => $term) {
+      if (is_array($value[$term->vid]) && in_array($tid, array_filter($value[$term->vid]))) {
+        return $method && $intype;
+      }
+    }
+  }
+  return $intype;
+}
+
 function ioai_nodeapi(&$node, $op) {
-  if (in_array($node->type, array_filter(variable_get('ioai_allow_type', array())))) {
+  $node->taxonomy = taxonomy_node_get_terms($node);
+  if (ioai_node_allow($node)) {
     include 'oai2/globalvars.php';
     
     switch ($op) {
       case 'load':
-        
         if (variable_get("upload_$node->type", 1) == 1) {
           $node->files = upload_load($node);
         }

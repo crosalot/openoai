@@ -12,6 +12,10 @@ function rotioai_theme() {
       'arguments' => array('item' => NULL),
       'template' => 'rotioai-item',
     ),
+    'rotioai_frame' => array(
+      'arguments' => array('link' => NULL, 'title' => NULL, 'allow_close' => NULL),
+      'template' => 'rotioai-frame',
+    ),
   );
 }
 
@@ -40,6 +44,12 @@ function rotioai_menu() {
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
+  $items['rotisearch/frame'] = array(
+    'title' => t('Search frame'),
+    'page callback' => 'rotioai_frame',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
   return $items;
 }
 
@@ -56,19 +66,7 @@ function rotioai_get_ping_url() {
  */
 function rotioai_nodeapi(&$node, $op, $a3=null, $a4=null) {
   if ($op == 'insert' || $op == 'update' || $op == 'view' || $op == 'delete') {
-    $content_types = variable_get('ioai_allow_type', array());
-    $found = 0;
-    foreach ($content_types as $v) {
-      if ($node->type === $v) {
-        $found = 1;
-        break;
-      } else {
-        $found = 0;
-      }
-    }
-
-    # Exit if the node's content type is not selected to ping
-    if ($found == 0) {
+    if (!ioai_node_allow($node)) {
       return;
     }
 
@@ -201,6 +199,7 @@ function rotioai_get_form($form_id) {
 }
 
 function rotioai_lite_form() {
+  drupal_add_js(drupal_get_path('module', 'rotioai') . '/custom_box.js');
   $form['#action'] = '/rotisearch';
   $options = rotioai_get_quick_options();
   if (variable_get('rotioai_quick_block', FALSE) && !empty($options)) {
@@ -212,10 +211,10 @@ function rotioai_lite_form() {
       '#default_value' => $_REQUEST['quick'],
     );
   }
-  $form['query_block'] = array(
+  $form['query'] = array(
     '#type' => 'textfield', 
     '#title' => t('Search'), 
-    //'#default_value' => $_REQUEST['query_block'],
+    '#default_value' => $_REQUEST['query'],
   );
   $form['submit'] = array(
     '#type' => 'submit', 
@@ -223,20 +222,6 @@ function rotioai_lite_form() {
   );
   return $form;
 }
-
-/**
- * Roti lite form search submit.
- */
-function rotioai_lite_form_submit($form, &$form_state) {
-  $form_state['rebuild'] = TRUE;
-  $settings = array(
-    'rotioai' => array(
-      'query' => $form_state['values']['query_block'],
-    ),
-  );
-  drupal_add_js($settings, 'setting');
-}
-
 /**
  * Implementation of hook_form().
  */
@@ -466,7 +451,7 @@ function rotioai_result() {
       $query = substr($query, 0, -2);
     }
     //$stats = 'Your search - <strong>'. $query .'</strong> - did not match any documents.';
-    $stats = 'Your search result did not match any documents.';
+    $stats = t('Your search result did not match any documents.');
   }
 
   if (!$_REQUEST['raw']) { // Skip form input for pure results.
@@ -481,7 +466,7 @@ function rotioai_result() {
 }
 
 /**
- * Implementation of hook_block().
+ * Implementation of hook_form().
  */
 function rotioai_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
@@ -522,6 +507,31 @@ function rotioai_get_quick_options() {
 
 function rotioai_get_default_rule($key, $value) {
   return $key == 'type'? node_get_types('name', trim($value)): trim($value);
+}
+
+function rotioai_frame() {
+
+  $css_path = drupal_get_path('module', 'rotioai').'/css/rotioai-frame.css';
+  $output = theme('rotioai_frame', $link, $title, $allow_close);
+  $output .= '<iframe src="'.$link.'">Your browser not support iframe.</iframe>';
+  $title = t('Go back to !s', array('!s' => variable_get('site_name', '')));
+  $link = 'http://'.$_SERVER['SERVER_NAME'];
+  
+  print '<html>
+           <head>
+             <title>Search frame</title>
+             <link href="/'.$css_path.'" media="all" rel="stylesheet" type="text/css">
+           </head>
+           <body>'.
+             theme('rotioai_frame', $link, $title, FALSE).
+            '<iframe src="'.$_GET['link'].'" width="100%" height="100%">Your browser not support iframe.</iframe>
+           </body>
+         </html>';
+  exit();
+}
+
+function rotioai_frame_link($link) {
+  return '/rotisearch/frame?link='.$link;
 }
 
 // -----------------------------------------------------------------------------
@@ -613,5 +623,6 @@ function ro_query($items, $field) {
   }
   return substr($ret, 0, -2);
 }
+
 
 ?>
