@@ -172,13 +172,15 @@ function ioai_global_settings_form_submit($form, $form_state) {
   }
   $tm = array_filter($tm);
   
+  $tmstr = empty($tm)? "": " AND term_node.tid IN (".implode(',', $tm).") ";
+
 
   // NODE
   if (!empty($delete_type)) {
     db_query("DELETE FROM {ioai_node} WHERE type IN (".implode(',', $delete_type).") AND status != 0");
   }
   if (!empty($add_type)) {
-    db_query("INSERT INTO {ioai_node} SELECT node.nid, node.changed, node.type, node.status, NULL FROM {node} node LEFT JOIN {term_node} term_node ON node.nid = term_node.nid AND term_node.tid IN (".implode(',', $tm).") WHERE node.type IN (".implode(',', $add_type).") AND term_node.tid IS".$term_include." NULL ON DUPLICATE KEY UPDATE datestamp = node.changed, status = node.status");
+    db_query("INSERT INTO {ioai_node} SELECT node.nid, node.changed, node.type, node.status, NULL FROM {node} node LEFT JOIN {term_node} term_node ON node.nid = term_node.nid ".$tmstr." WHERE node.type IN (".implode(',', $add_type).") AND term_node.tid IS".$term_include." NULL ON DUPLICATE KEY UPDATE datestamp = node.changed, status = node.status");
     $res = db_query("SELECT nid FROM {ioai_node} WHERE status != 0");
     while ($node = db_fetch_object($res)) {
       db_query("UPDATE {ioai_node} SET sets = '%s' WHERE nid = %d", ioai_node_get_sets($node->nid), $node->nid);
