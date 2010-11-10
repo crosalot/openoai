@@ -211,10 +211,10 @@ function rotioai_lite_form() {
       '#default_value' => $_REQUEST['quick'],
     );
   }
-  $form['query'] = array(
+  $form['query_block'] = array(
     '#type' => 'textfield', 
     '#title' => t('Search'), 
-    '#default_value' => $_REQUEST['query'],
+    '#default_value' => $_REQUEST['query_block'],
   );
   $form['submit'] = array(
     '#type' => 'submit', 
@@ -222,6 +222,20 @@ function rotioai_lite_form() {
   );
   return $form;
 }
+
+/**
+ * Roti lite form search submit.
+ */
+function rotioai_lite_form_submit($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+  $settings = array(
+    'rotioai' => array(
+      'query' => $form_state['values']['query_block'],
+    ),
+  );
+  drupal_add_js($settings, 'setting');
+}
+
 /**
  * Implementation of hook_form().
  */
