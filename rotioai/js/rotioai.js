@@ -120,9 +120,9 @@ $(document).ready(function() {
   if (get_fields() || query) {
     fetch(0, null, true);
   }
-  if (Drupal.settings.rotioai.query != undefined) {
-        $('#edit-query').val(Drupal.settings.rotioai.query);
-        $('#rotioai-form').submit();
+  if (typeof Drupal.settings.rotioai != 'undefined') {
+    $('#edit-query').val(Drupal.settings.rotioai.query);
+    $('#rotioai-form').submit();
   }
 	
 	

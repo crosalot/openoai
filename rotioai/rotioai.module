@@ -318,7 +318,7 @@ function rotioai_form() {
     '#value' => t('Search')
   );
   $form['reset'] = array(
-    '#value' => '<input class="form-button" type="button" ' .
+    '#value' => '<input class="form-button" id="reset-button" type="button" ' .
                 'value="Reset" onclick="rotioai_form_reset(); return false;" />',
   );
   
@@ -449,7 +449,7 @@ function rotioai_result() {
     $end_offset = ($_GET['page'] * $ipp + $ipp > $matches) ? $matches : ($_GET['page'] * $ipp + $ipp);
     $end_offset = '<strong>'. $end_offset .'</strong>';
     $stats = 'Results '. $start_offset .' - '. $end_offset .' of about <strong>'. $matches .'</strong>';
-    $stats = '<div class="result-stats">'. $stats .'</div>';
+    $stats = t('Results @start - @end of about <strong>@matches</strong>', array('@start' => $start_offset , '@end' => $end_offset, '@matchs' => $matches));
   } else {
     $query = $modified_query;
     if (trim($_POST['query']) != '') {
@@ -472,7 +472,7 @@ function rotioai_result() {
     $output .= drupal_get_form('rotioai_form');
   }
   $output .= '<div id="rotisearch-result">';
-  $output .= $stats;
+  $output .= '<div class="result-stats">'. $stats .'</div>';
   $output .= theme('item_list', $contents, NULL, 'ol');
   $output .= theme('pager', array(), $ipp);
   $output .= '</div>';
