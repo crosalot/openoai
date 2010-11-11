@@ -448,8 +448,7 @@ function rotioai_result() {
     $start_offset = '<strong>'. $start_offset .'</strong>';
     $end_offset = ($_GET['page'] * $ipp + $ipp > $matches) ? $matches : ($_GET['page'] * $ipp + $ipp);
     $end_offset = '<strong>'. $end_offset .'</strong>';
-    $stats = 'Results '. $start_offset .' - '. $end_offset .' of about <strong>'. $matches .'</strong>';
-    $stats = t('Results @start - @end of about <strong>@matches</strong>', array('@start' => $start_offset , '@end' => $end_offset, '@matchs' => $matches));
+    $stats = t('Results !start - !end of about <strong>!matches</strong>', array('!start' => $start_offset , '!end' => $end_offset, '!matches' => $matches));
   } else {
     $query = $modified_query;
     if (trim($_POST['query']) != '') {
