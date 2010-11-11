@@ -106,7 +106,11 @@ function ioai_node_allow($node) {
   return $intype;
 }
 
-function ioai_nodeapi(&$node, $op) {
+/**
+ * Implementation of hook_nodeapi().
+ */
+function ioai_nodeapi(&$_node, $op) {
+  $node = clone($_node);
   $node->taxonomy = taxonomy_node_get_terms($node);
   if (ioai_node_allow($node)) {
     include 'oai2/globalvars.php';
@@ -199,6 +203,8 @@ function ioai_nodeapi(&$node, $op) {
             }
 	        }
         }
+        
+        $_node->oai = $node->oai;
 
         break;
       case 'insert':
