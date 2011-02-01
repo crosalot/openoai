@@ -41,7 +41,9 @@ function ioai_uninstall() {
 	drupal_uninstall_schema('ioai');
 }
 
-function ioai_update_01() {
-	db_query("ALTER TABLE {ioai_node} DROP PRIMARY KEY");
-	db_query("ALTER TABLE {ioai_node} ADD PRIMARY KEY (nid, type)");
+function ioai_update_6001() {
+  $ret = array();
+  db_drop_primary_key($ret, 'ioai_node');
+  db_add_primary_key($ret, 'ioai_node', array('nid', 'type'));
+  return $ret;
 }
