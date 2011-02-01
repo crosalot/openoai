@@ -3,7 +3,6 @@
 	background-image: none !important;
 	margin: 0 0 35px 0;
 	padding: 0;
-	width: 600px;
 }
 
 #rotisearch-result li em {
@@ -32,12 +31,6 @@
 	text-align: right;
 	width: 600px;
 }
-#rotisearch-result .layer-first {
-  float: left;
-}
-#rotisearch-result .layer-last {
-  margin-left: 155px;
-}
 
 #roti-loading {
   z-index: 200;
@@ -50,3 +43,34 @@
   
 
 }
+
+/*
+** search
+*/
+.section-rotisearch #rotisearch-result .result-stats {text-align: left; width: 100%;}
+.section-rotisearch #rotisearch-result .layer-last {margin: 10px 0px 15px 0px; float:left;}
+.section-rotisearch #rotisearch-result .layer-first {margin: 10px 0px 15px 0px;}
+.section-rotisearch #rotisearch-result ol {margin: 0;} 
+.section-rotisearch #rotisearch-result ol li {width: 100%; clear:both; border-top:1px dashed #DDDDDD;}
+.section-rotisearch #rotisearch-result ol li.first {border:0px;}
+#rotisearch-result .have-img .layer-last {width:100%; margin-right: -165px}
+#rotisearch-result .have-img .layer-last .wrap {margin-right:165px; position:relative;}
+#rotisearch-result .have-img .layer-first {width:160px; float: right;}
+
+form#rotioai-lite-form #edit-quick-wrapper,
+form#rotioai-form #edit-quick-wrapper {display: none;}
+
+form#rotioai-form {overflow: hidden;}
+form#rotioai-form #edit-query-wrapper {float: left;}
+form#rotioai-form input.form-submit {margin: 39px 0 0;} 
+form#rotioai-form input.form-button {display: none;}
+  
+form#rotioai-form #edit-query-wrapper input.form-text {width: 250px;}
+
+
+/*index*/
+#rotisearch-result .result-stats {margin: 0 0 20px;}
+
+#rotisearch-result li .roti-search-item div.layer-last div.meta {display: none;}
+#rotisearch-result li .roti-search-item div.layer-last h4 {font-size: 1em;}
+

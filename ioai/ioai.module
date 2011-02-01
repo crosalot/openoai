@@ -575,6 +575,7 @@ function ioai_term_get_set_array($tid) {
 
 
 function ioai_get_sets() {
+  require_once drupal_get_path('module', 'taxonomy') .'/taxonomy.module';
   $terms = taxonomy_get_tree(variable_get('sets', 0));
   if (empty($terms)) {
     return '';

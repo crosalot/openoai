@@ -625,7 +625,7 @@ function ro_num($items) {
 
 function ro_str($items) {
   if (empty($items)) { return; }
-  return implode(', ', $items);
+  return str_replace(array("\xc2\xa0"), array(""), implode(', ', $items));
 }
 
 function ro_query($items, $field) {
