@@ -66,9 +66,9 @@ $(document).ready(function() {
 
 		var fields = get_fields();
 		jQuery.extend(req, fields);
-    $('#roti-loading').show();
-    if (!jQuery.isEmptyObject(fields) || query) {
-			window.location.hash = '#rotisearch-box';
+		$('#roti-loading').show();
+		if (!jQuery.isEmptyObject(fields) || query) {
+				window.location.hash = '#rotisearch-box';
 		}
 		$('#rotisearch-box').load('rotisearch/result #rotisearch-result', req, function() {
 				$('ul.pager li a').click(function(e) {
@@ -84,7 +84,7 @@ $(document).ready(function() {
 
 				$('a.roti-query').click(function(e) {
 					e.preventDefault();
-          var query_link = $(this).attr('href');
+				    var query_link = $(this).attr('href');
 					fetch(0, query_link);
 				});
 
@@ -111,15 +111,16 @@ $(document).ready(function() {
 					$('#advanced-search').removeClass('advanced');
 				}
       
-        $('#roti-loading').hide();
+			$('#roti-loading').hide();
 			}).effect('highlight', {}, 1000);
 
 	};
 	
-	var query = jQuery.trim($('#edit-query').val());
+  var query = jQuery.trim($('#edit-query').val());
   if (get_fields() || query) {
     fetch(0, null, true);
   }
+
   if (typeof Drupal.settings.rotioai != 'undefined') {
     $('#edit-query').val(Drupal.settings.rotioai.query);
     $('#rotioai-form').submit();
