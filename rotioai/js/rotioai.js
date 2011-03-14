@@ -71,7 +71,7 @@ $(document).ready(function() {
 			window.location.hash = '#rotisearch-box';
 		}
 		$('#rotisearch-box').load('rotisearch/result #rotisearch-result', req, function() {
-				$('ul.pager a').click(function(e) {
+				$('ul.pager li a').click(function(e) {
 					e.preventDefault();
 					var page = String(this).match(/page=(\d+)/);
 					if (page != null) {
