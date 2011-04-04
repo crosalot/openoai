@@ -1,0 +1,63 @@
+<?php
+
+/**
+ * Implementation of hook_menu().
+ */
+function rotics_menu() {
+  $items['admin/settings/rotics'] = array(
+    'title' => t('Roti custom search settings'),
+    'description' => t('Configure the options defined for Roti custom search module.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotics_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'rotics.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/settings/rotics/global'] = array(
+    'title' => t('Global'),
+    'description' => t('Configure the options defined for Roti custom search module.'),
+    'file' => 'rotics.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  for ($id = 0; $id < variable_get('rotics_number', 2); $id++) {
+    $title = variable_get('rotics_title_'.$id, t('Page '.$id));
+    $items['admin/settings/rotics/'.$id] = array(
+      'title' => $title,
+      'description' => t('Configure the options defined for Roti custom search module.'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('rotics_page_settings', 3),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'rotics.admin.inc',
+      'type' => MENU_LOCAL_TASK
+    );
+
+    $path = variable_get('rotics_path_'.$id, '');
+    if ($path) {
+      $items[$path] = array(
+        'title' => $title,
+        'access arguments' => array('access content'),
+        'page callback' => 'rotioai_get_form',
+        'page arguments' => array('rotioai_form', 'cs-'.$id),
+      );
+    }
+  }
+  return $items;
+}
+
+function rotics_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'rotioai_form') {
+
+    $id = $form['cs']['#value'];
+
+    $type = variable_get('rotics_type_'.$id, '');
+    if ($form['advanced']['keywords']['type'] && $type) {
+      $form['advanced']['keywords']['type']['#default_value'] = $type;
+      $form['advanced']['keywords']['type']['#type'] = 'hidden';
+    }
+    $subject = variable_get('rotics_subject_'.$id, '');
+    if ($form['advanced']['keywords']['subject'] && $subject) {
+      $form['advanced']['keywords']['subject']['#type'] = 'hidden';
+    }
+  }
+}

@@ -1,0 +1,6 @@
+; $Id$
+name = Roti Custom Search
+description = Create preset page for custom search.
+package = Roti 
+version = 6.x-0.1
+core = 6.x

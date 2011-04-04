@@ -194,8 +194,8 @@ function rotioai_clean_text($string) {
 
 // SEARCH =================================================================================
 
-function rotioai_get_form($form_id) {
-  return drupal_get_form($form_id) .'<div id="rotisearch-box"></div>';
+function rotioai_get_form($form_id, $id=NULL) {
+  return drupal_get_form($form_id, $id) .'<div id="rotisearch-box"></div>';
 }
 
 function rotioai_lite_form() {
@@ -239,7 +239,7 @@ function rotioai_lite_form_submit($form, &$form_state) {
 /**
  * Implementation of hook_form().
  */
-function rotioai_form() {
+function rotioai_form(&$form_state, $id=NULL) {
   $mod_path = drupal_get_path('module', 'rotioai');
   drupal_add_css($mod_path.'/css/rotioai.css');
   drupal_add_js($mod_path.'/js/rotioai.js');
@@ -265,6 +265,11 @@ function rotioai_form() {
     '#title' => t('Keyword(s)'), 
     '#default_value' => $_REQUEST['query'],
     '#description' => t('Search through all fields.'),
+  );
+
+  $form['cs'] = array(
+    '#type' => 'hidden', 
+    '#value' => str_replace('cs-', '', $id),
   );
   
   $fields = variable_get('rotioai_dc', array());
@@ -334,6 +339,7 @@ function rotioai_query_builder() {
   $q = trim($_POST['query']);
   
   $fields = variable_get('rotioai_dc', array());
+  $fields = array_keys($fields);
   $fields[] = 'from';
   $fields[] = 'to';
   foreach ($fields as $field) {

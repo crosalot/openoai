@@ -11,12 +11,12 @@ $(document).ready(function() {
 	$('#advanced-search legend a').click(function(e) {
 		if ($('#advanced-search').hasClass('advanced')) {
 			rotioai_form_reset();
-			$('#edit-query').removeAttr("disabled");
+			//$('#edit-query').removeAttr("disabled");
 			$('#edit-query').focus();
 			$('#advanced-search').removeClass('advanced');
 		} else {
-			$('#edit-query').val('');
-			$('#edit-query').attr('disabled', 'disabled');
+			//$('#edit-query').val('');
+			//$('#edit-query').attr('disabled', 'disabled');
 			$('#advanced-search').addClass('advanced');
 		}
 	});
@@ -85,12 +85,13 @@ $(document).ready(function() {
 				$('a.roti-query').click(function(e) {
 					e.preventDefault();
           var query_link = $(this).attr('href');
+console.log(query_link);
 					fetch(0, query_link);
 				});
 
 				// Handle fieldset behavior
 				if (!jQuery.isEmptyObject(fields)) {
-					$('#edit-query').val('');
+					//$('#edit-query').val('');
 					/*
 					$('#edit-advanced-keywords-title').val(title);
 					$('#edit-advanced-keywords-body').val(body);
@@ -99,14 +100,14 @@ $(document).ready(function() {
 					$('#edit-advanced-keywords-to-date').val(to);
 					*/
 
-					$('#edit-query').attr('disabled', 'disabled');
+					//$('#edit-query').attr('disabled', 'disabled');
 					$('.fieldset-wrapper').attr('style', 'display:block;');
 					$('#advanced-search').removeClass('collapsed');
 					$('#advanced-search').addClass('advanced');
 				} else {
 					$('#edit-query').val(query);
 
-					$('#edit-query').removeAttr('disabled');
+					//$('#edit-query').removeAttr('disabled');
 					$('#advanced-search').addClass('collapsed');
 					$('#advanced-search').removeClass('advanced');
 				}
