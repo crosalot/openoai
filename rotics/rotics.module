@@ -53,11 +53,38 @@ function rotics_form_alter(&$form, &$form_state, $form_id) {
     $type = variable_get('rotics_type_'.$id, '');
     if ($form['advanced']['keywords']['type'] && $type) {
       $form['advanced']['keywords']['type']['#default_value'] = $type;
-      $form['advanced']['keywords']['type']['#type'] = 'hidden';
+      $form['advanced']['keywords']['type']['#attributes'] = array('style' => 'display:none;');
+      $form['advanced']['keywords']['type']['#title'] = '';
+      $form['advanced']['keywords']['type']['#description'] = '';
     }
     $subject = variable_get('rotics_subject_'.$id, '');
     if ($form['advanced']['keywords']['subject'] && $subject) {
+      $form['advanced']['keywords']['subject']['#default_value'] = $subject;
       $form['advanced']['keywords']['subject']['#type'] = 'hidden';
+      $form['advanced']['keywords']['subject']['#attributes'] = array('style' => 'display:none;');
+      $form['advanced']['keywords']['subject']['#title'] = '';
+      $form['advanced']['keywords']['subject']['#description'] = '';
     }
+  }
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function rotics_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    for ($id = 0; $id < variable_get('rotics_number', 2); $id++) {
+      $blocks[$id] = array('info' => t('Roti Custom Search No.'. $id));
+    }
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    $path = variable_get('rotics_path_'.$delta, '');
+    if ($path) {
+      $block = array(
+        'content' => drupal_get_form('rotioai_lite_form', $path),
+      );  
+    }
+    return $block;
   }
 }

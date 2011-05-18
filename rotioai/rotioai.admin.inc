@@ -15,6 +15,11 @@ function rotioai_settings(&$form_state) {
     '#default_value' => variable_get('rotioai_url', ROTIOAI_DEFAULT_URL),
     '#description' => t('Contact Roti administrator for the pinged and search URL of your site.'),
   );
+  $form['rotioai']['rotioai_keywords_text'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Keywords text'),
+    '#default_value' => variable_get('rotioai_keywords_text', 'Keyword(s)'),
+  );
   $form['rotioai']['rotioai_ipp'] = array(
     '#title' => t('Items per page'),
     '#type' => 'textfield',

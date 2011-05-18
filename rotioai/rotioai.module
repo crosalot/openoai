@@ -76,6 +76,7 @@ function rotioai_nodeapi(&$node, $op, $a3=null, $a4=null) {
       case 'insert':
       case 'update':
         if ($node->status == 1) { // Published
+          rotioai_add_document($node, $ping_url);
           $_SESSION['after_update'] = $node->nid;
         } else {
           rotioai_delete_document($node, $ping_url);
@@ -97,19 +98,6 @@ function rotioai_nodeapi(&$node, $op, $a3=null, $a4=null) {
   }
 }
 
-function rotioai_init() {
-  // Cheat: taxonomy_node_get_terms() doesn't update when $op=update
-  if (isset($_SESSION['after_update'])) {
-    $node = node_load($_SESSION['after_update']);
-    if($node) {
-      //drupal_set_message(print_r($node, 1));
-      $ping_url = rotioai_get_ping_url();
-      rotioai_add_document($node, $ping_url);
-    }
-    unset($_SESSION['after_update']);
-  }
-}
-
 function rotioai_comment(&$a1, $op) {
   if (variable_get('ioai_allow_comment', FALSE)) {
     $ping_url = rotioai_get_ping_url();
@@ -127,6 +115,7 @@ function rotioai_comment(&$a1, $op) {
 function rotioai_add_document($node, $ping_url) {
   $ping_url = $ping_url . "add/";
   
+  $node = ioai_build_oai($node);
   $oai = $node->oai;
 
   $data = 'header_identifier='.urlencode($oai['oai_identifier']).
@@ -149,6 +138,24 @@ function rotioai_add_document($node, $ping_url) {
     }
   }
 
+  $criteria = array(
+    'content_type' => 'node',
+    'content_id' => $node->nid,
+    'value_type' => 'percent',
+    'tag' => 'vote',
+  );
+
+  $results = votingapi_select_results($criteria);
+
+  if ($results[0]['value'] == 0) {
+    $criteria['value_type'] = 'points';
+    $results = votingapi_select_results($criteria);
+  }
+
+  if ($results[0]['value']) {
+    $data .= '&vote='.$results[0]['value'];
+  }
+
   try {
     $headers = array('Content-Type' => 'text/html; charset=utf-8');
     $resp = drupal_http_request($ping_url, $headers, 'POST', $data);
@@ -161,6 +168,7 @@ function rotioai_add_document($node, $ping_url) {
 function rotioai_delete_document($node, $ping_url) {
   $ping_url = $ping_url . "delete/";
   $node = node_load($node->nid);
+  $node = ioai_build_oai($node);
   $oai = $node->oai;
   $data = 'header_identifier='.urlencode($oai['oai_identifier']).
           '&header_datestamp='.urlencode($oai['datestamp']).
@@ -168,6 +176,7 @@ function rotioai_delete_document($node, $ping_url) {
           '&title='.urlencode(implode('|', $oai['dc_title']));
           
   try {
+    dpm($ping_url);
     $headers = array('Content-Type' => 'text/html; charset=utf-8');
     drupal_http_request($ping_url, $headers, 'POST', $data);
   } catch (Exception $e) {
@@ -195,12 +204,17 @@ function rotioai_clean_text($string) {
 // SEARCH =================================================================================
 
 function rotioai_get_form($form_id, $id=NULL) {
-  return drupal_get_form($form_id, $id) .'<div id="rotisearch-box"></div>';
+  $sort_html = variable_get('rotics_sort_'.str_replace('cs-', '', $id), '');
+  $sort = '';
+  if ($sort_html) {
+    $sort = '<div id="roti-sort-html">'.$sort_html.'</div>';
+  }
+  return drupal_get_form($form_id, $id) .$sort.'<div id="rotisearch-box"></div>';
 }
 
-function rotioai_lite_form() {
+function rotioai_lite_form(&$form_state, $path='') {
   drupal_add_js(drupal_get_path('module', 'rotioai') . '/custom_box.js');
-  $form['#action'] = '/rotisearch';
+  $form['#action'] = $path? '/'.$path: '/rotisearch';
   $options = rotioai_get_quick_options();
   if (variable_get('rotioai_quick_block', FALSE) && !empty($options)) {
     $options = array_merge(array('all' => '- '.t('All').' -'), $options);
@@ -243,9 +257,19 @@ function rotioai_form(&$form_state, $id=NULL) {
   $mod_path = drupal_get_path('module', 'rotioai');
   drupal_add_css($mod_path.'/css/rotioai.css');
   drupal_add_js($mod_path.'/js/rotioai.js');
+  if (module_exists('plus1')) {
+    drupal_add_js($mod_path.'/js/plus1.inc.js');
+  }
   drupal_add_css($mod_path.'/css/jquery-ui.css');
   drupal_add_js($mod_path.'/js/jquery-min.js');
   drupal_add_js($mod_path.'/js/jquery-ui-min.js');
+
+  $id = str_replace('cs-', '', $id);
+
+  $form['pre_wrap'] = array(
+    '#type' => 'markup', 
+    '#value' => '<div class="roti-form-wraper">',
+  );
   
   $options = rotioai_get_quick_options();
   if (!empty($options)) {
@@ -262,14 +286,14 @@ function rotioai_form(&$form_state, $id=NULL) {
   
   $form['query'] = array(
     '#type' => 'textfield', 
-    '#title' => t('Keyword(s)'), 
-    '#default_value' => $_REQUEST['query'],
+    '#title' => t(variable_get('rotics_keywords_text_'.$id, variable_get('rotioai_keywords_text', 'Keyword(s)'))), 
+    '#default_value' => $_REQUEST['query']? $_REQUEST['query']: $_REQUEST['query_block'],
     '#description' => t('Search through all fields.'),
   );
 
   $form['cs'] = array(
     '#type' => 'hidden', 
-    '#value' => str_replace('cs-', '', $id),
+    '#value' => $id,
   );
   
   $fields = variable_get('rotioai_dc', array());
@@ -335,6 +359,20 @@ function rotioai_form(&$form_state, $id=NULL) {
     '#type' => 'markup', 
     '#value' => '<img width="100px" height="100px" id="roti-loading" src="'.$mod_path.'/images/loading45.gif" alt="LOADING ..." title="loading" />', 
   );
+
+  $form['suf_wrap'] = array(
+    '#type' => 'markup', 
+    '#value' => '</div>',
+  );
+
+  $suffix = drupal_eval(variable_get('rotics_suffix_'.$id, ''));
+  if ($suffix) {
+    $form['suffix'] = array(
+      '#type' => 'markup', 
+      '#value' => '<div id="roti-suffix">'.$suffix.'</div>',
+    );
+  }
+
   return $form;
 }
 
@@ -400,13 +438,15 @@ function rotioai_query_builder() {
     if (!empty($cats)) {
       $query .= '&category='.urlencode($cats);
     }
-    //drupal_set_message(print_r($query, 1));
   }
   
 
   // Store statistics if an input is sent from form's submission.
   if ($_POST['is_form_submit'] == 'true') {
     $query .= '&source_by=form';
+  }
+  if ($_POST['sort']) {
+    $query .= '&sort='.$_POST['sort'];
   }
 
   return $query;
@@ -433,7 +473,6 @@ function rotioai_result() {
   if (!$_REQUEST['raw']) { // Skip form input for pure results.
     print $url;
   }
-  //exit();
   
   $response = drupal_http_request($url);
   if ($response->code != 200 && $response->redirect_code != 200) {
@@ -480,6 +519,7 @@ function rotioai_result() {
   if (!$_REQUEST['raw']) { // Skip form input for pure results.
     $output .= drupal_get_form('rotioai_form');
   }
+
   $output .= '<div id="rotisearch-result">';
   $output .= '<div class="result-stats">'. $stats .'</div>';
   $output .= theme('item_list', $contents, NULL, 'ol');

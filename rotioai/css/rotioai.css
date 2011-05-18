@@ -69,7 +69,7 @@ form#rotioai-form #edit-query-wrapper input.form-text {width: 250px;}
 
 
 /*index*/
-#rotisearch-result .result-stats {margin: 0 0 20px;}
+#rotisearch-result .result-stats {margin: 0 0 15px;}
 
 #rotisearch-result li .roti-search-item div.layer-last div.meta {display: none;}
 #rotisearch-result li .roti-search-item div.layer-last h4 {font-size: 1em;}
