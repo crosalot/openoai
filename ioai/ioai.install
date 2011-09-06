@@ -20,7 +20,7 @@ function ioai_schema() {
       'status' => array('type' => 'int'),
       'sets' => array('type' => 'varchar', 'length' => 255),
     ),
-    'primary key' => array('nid'),
+    'primary key' => array('nid', 'type'),
 	);
 	$schema['ioai_token'] = array(
 		'fields' => array(
