@@ -117,6 +117,7 @@ function ioai_nodeapi(&$_node, $op) {
     switch ($op) {
       case 'load':
         $node = ioai_build_oai($node);
+        $_node = $node;
         break;
       case 'insert':
       case 'update':
