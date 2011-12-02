@@ -94,8 +94,17 @@ function rotioai_settings(&$form_state) {
     '#description' => 'Example:<br />type|story<br />type|page<br />subject|health<br />subject|sport',
   );
 
-  
   return system_settings_form($form);
 }
 
-?>
+/**
+ * Reindex form.
+ */
+function rotioai_reindex_form() {
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Re-index RotiOAI'),
+  );
+  $form['#redirect'] = 'admin/build/rotioai/reindex';
+  return $form;
+}

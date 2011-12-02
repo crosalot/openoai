@@ -29,7 +29,22 @@ function rotioai_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('rotioai_settings'),
     'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
     'file' => 'rotioai.admin.inc',
+  );
+  $items['admin/build/rotioai'] = array(
+    'title' => t('Re-index RotiOAI'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotioai_reindex_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'rotioai.admin.inc',
+  );
+  $items['admin/build/rotioai/reindex'] = array(
+    'title' => t('Re-index'),
+    'page callback' => 'rotioai_reindex_batch',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
   );
   $items['rotisearch'] = array(
     'title' => t('Search'),
@@ -138,22 +153,24 @@ function rotioai_add_document($node, $ping_url) {
     }
   }
 
-  $criteria = array(
-    'content_type' => 'node',
-    'content_id' => $node->nid,
-    'value_type' => 'percent',
-    'tag' => 'vote',
-  );
+  if (module_exists('votingapi')) {
+    $criteria = array(
+      'content_type' => 'node',
+      'content_id' => $node->nid,
+      'value_type' => 'percent',
+      'tag' => 'vote',
+    );
 
-  $results = votingapi_select_results($criteria);
-
-  if ($results[0]['value'] == 0) {
-    $criteria['value_type'] = 'points';
     $results = votingapi_select_results($criteria);
-  }
 
-  if ($results[0]['value']) {
-    $data .= '&vote='.$results[0]['value'];
+    if ($results[0]['value'] == 0) {
+      $criteria['value_type'] = 'points';
+      $results = votingapi_select_results($criteria);
+    }
+
+    if ($results[0]['value']) {
+      $data .= '&vote='.$results[0]['value'];
+    }
   }
 
   try {
@@ -176,7 +193,6 @@ function rotioai_delete_document($node, $ping_url) {
           '&title='.urlencode(implode('|', $oai['dc_title']));
           
   try {
-    dpm($ping_url);
     $headers = array('Content-Type' => 'text/html; charset=utf-8');
     drupal_http_request($ping_url, $headers, 'POST', $data);
   } catch (Exception $e) {
@@ -687,5 +703,100 @@ function ro_query($items, $field) {
   return substr($ret, 0, -2);
 }
 
+/**
+ * Batch callback.
+ */
+function rotioai_reindex_batch() {
+  $total = db_result(db_query("SELECT COUNT(nid) FROM {node}"));
+  $limit = 1;
+  $rounds = ceil($total / $limit);
+  $operations = array();
+  $result = db_query("SELECT nid FROM {node} ORDER BY nid ASC");
+  $count = 0;
+  $nids = array();
+  while ($row = db_fetch_object($result)) {
+    $nids[] = $row->nid;
+    $count++;
+    if (count($nids) == $limit) {
+      $operations[] = array(
+        'rotioai_reindex_batch_process',
+        array($nids, $rounds),
+      );
+      $count = 0;
+      $nids = array();
+    }
+  }
+  $batch = array(
+    'title' => t('Re-index RotiOAI'),
+    'init_message' => t('Re-index is starting'),
+    'error_message' => t('Batch has encountered an error.'),
+    'operations' => $operations,
+    'finished' => 'rotioai_reindex_batch_finish',
+  );
+  batch_set($batch);
+  batch_process('<front>');
+}
 
-?>
+/**
+* Batch process.
+*/
+function rotioai_reindex_batch_process($nids, $total, &$context) {
+  if (!isset($context['sandbox']['progress'])) {
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['count'] = 0;
+    $context['sandbox']['max'] = $total;
+  }
+
+  $ping_url = rotioai_get_ping_url();
+  foreach ($nids as $nid) {
+    $node = node_load($nid);
+
+    if (!ioai_node_allow($node)) {
+      continue;
+    }
+
+    $context['results'][] = '(nid:'. $node->nid .') '. $node->title;
+
+    if ($node->status == 1) { // Published
+      rotioai_add_document($node, $ping_url);
+      $_SESSION['after_update'] = $node->nid;
+    } else {
+      rotioai_delete_document($node, $ping_url);
+    }
+
+    $context['sandbox']['progress']++;
+    $context['message'] = t('Now processing: nid: !nid, title: %node', array('!nid' => $node->nid, '%node' => $node->title));
+  }
+}
+
+/**
+* Batch finished callback.
+*/
+function rotioai_reindex_batch_finish($success, $results, $operations) {
+  if ($success) {
+    $message = count($results) .' processed.';
+    $message .= theme('item_list', $results);
+  }
+  else {
+    drupal_set_message(print_r($results, 1));
+    $error_operation = reset($operations);
+    $message = t('An error occurred while processing %error_operation with arguments: @arguments', array('%error_operation' => $error_operation[0], '@arguments' => print_r($error_operation[1], TRUE)));
+  }
+  drupal_set_message($message);
+}
+
+/**
+ * Support for PHP 5.1 which has no json_decode.
+ */
+if (!function_exists('json_decode')) {
+  function json_decode($content, $assoc=false) {
+    require_once drupal_get_path('module', 'rotioai') .'/JSON.php';
+    if ($assoc) {
+      $json = new Services_JSON(SERVICES_JSON_LOOSE_TYPE);
+    }
+    else {
+      $json = new Services_JSON;
+    }
+    return $json->decode($content);
+  }
+}
