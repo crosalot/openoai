@@ -135,7 +135,7 @@ function ioai_build_oai($_node) {
   include 'oai2/globalvars.php';
 
   $node = clone($_node);
-  if (variable_get("upload_$node->type", 1) == 1) {
+  if (function_exists('upload_load') && variable_get("upload_$node->type", 1) == 1) {
     $node->files = upload_load($node);
   }
 
@@ -212,7 +212,7 @@ function ioai_build_oai($_node) {
 	            }
 	            elseif (!empty($value['filepath'])) {
 	              $tmp = $value['filepath'];
-	              $widget_type = db_result(db_query("SELECT widget_type FROM content_node_field_instance WHERE field_name = '%s' LIMIT 0, 1", $code));
+	              $widget_type = db_result(db_query("SELECT widget_type FROM {content_node_field_instance} WHERE field_name = '%s' LIMIT 0, 1", $code));
 	              if ($widget_type == 'imagefield_widget') {
 	                $preset = variable_get('ioai_preset', FALSE);
 	                if ($preset) {
