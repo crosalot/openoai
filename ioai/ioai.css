@@ -16,3 +16,19 @@
 	margin-right: 20px;
 	position: relative;
 }
+
+form#ioai-type-settings-form fieldset {
+	float: left;
+	width: 20%;
+	margin-right: 10px;
+}
+
+form#ioai-type-settings-form div.fieldset-wrapper fieldset {
+	float: none;
+	width: auto;
+}
+
+input#edit-submit {
+	clear: both;
+	display: block;
+}

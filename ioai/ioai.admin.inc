@@ -3,38 +3,45 @@
 function ioai_settings_form($type_name, $options) {
   drupal_add_css(drupal_get_path('module', 'ioai').'/ioai.css');
   drupal_add_js(drupal_get_path('module', 'ioai').'/ioai.js');
-  
-  foreach (ioai_get_dc() as $dc) {
-    $form[$dc.'-before'] = array('#value' => '<div class="oai-wrap">');
-    $form[$dc] = array(
+
+  $dc_types = ioai_get_dc();
+  foreach ($dc_types as $dc) {
+    $form[$dc .'_fs'] = array(
+      '#type' => 'fieldset',
       '#title' => $dc,
-      '#type' => 'select',
-      '#options' => $options,
-      '#multiple' => TRUE,
-      '#default_value' => ioai_get_current_map($type_name, $dc),
     );
-    $form[$dc.'_custom'] = array(
-      '#type' => 'textfield', 
-      '#default_value' => '',
-      '#size' => 20, 
-      '#attributes' => array('class' => 'global-field custom'),
-      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'custom')
-    );
-    $form[$dc.'_type'] = array(
-      '#type' => 'select', 
-      '#options' => ioai_get_global_types(), 
-      '#default_value' => '',
-      '#attributes' => array('class' => 'global-field type'),
-      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'type')
-    );
-    $form[$dc.'_format'] = array(
-      '#type' => 'select', 
-      '#options' => ioai_get_global_formats(),
-      '#default_value' => '',
-      '#attributes' => array('class' => 'global-field format'.''),
-      '#default_value' => ioai_get_current_global_map($type_name, $dc, 'format')
-    );
-    $form[$dc.'-after'] = array('#value' => '</div>');
+    foreach ($options as $group => $option) {
+      $form[$dc .'_fs'][$group] = array(
+        '#type' => 'fieldset',
+        '#title' => $group,
+        '#tree' => TRUE,
+      );
+      $form[$dc .'_fs'][$group][$dc] = array(
+        '#type' => 'checkboxes',
+        '#options' => $option,
+        '#default_value' => ioai_get_current_map($type_name, $dc),
+      );
+      if ($group == 'Global') {
+        $form[$dc .'_fs'][$group][$dc .'_custom'] = array(
+          '#type' => 'textfield',
+          '#title' => t('Custom'),
+          '#default_value' => ioai_get_current_global_map($type_name, $dc, 'custom'),
+          '#size' => 15,
+        );
+        $form[$dc .'_fs'][$group][$dc .'_type'] = array(
+          '#type' => 'select',
+          '#title' => t('Type'),
+          '#options' => ioai_get_global_types(),
+          '#default_value' => ioai_get_current_global_map($type_name, $dc, 'type'),
+        );
+        $form[$dc .'_fs'][$group][$dc .'_format'] = array(
+          '#type' => 'select',
+          '#title' => t('Format'),
+          '#options' => ioai_get_global_formats(),
+          '#default_value' => ioai_get_current_global_map($type_name, $dc, 'format'),
+        );
+      }
+    }
   }
   
   $form['type'] = array('#type' => 'hidden', '#value' => $type_name);
@@ -54,6 +61,23 @@ function ioai_settings_form_submit($form, &$form_state) {
     $values['form_token']    ,
     $values['form_id']
   );
+
+  $_values = array();
+  foreach ($values as $group => $dc_data) {
+    foreach ($dc_data as $dc => $data) {
+      if (!is_array($data)) {
+        $_values[$dc] = $data;
+        continue;
+      }
+      if (!isset($_values[$dc])) {
+        $_values[$dc] = array();
+      }
+      $data = array_filter($data);
+      $_values[$dc] = array_merge($_values[$dc], $data);
+    }
+  }
+
+  $values = $_values;
   
   db_query("DELETE FROM {ioai_map} WHERE type = '%s'", $type);
   foreach ($values as $dc => $fields) {
