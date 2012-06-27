@@ -161,9 +161,14 @@ function ioai_global_settings_form() {
     '#options' => $options, 
     '#default_value' => variable_get('sets', 0),
   );
+  $presets = array();
+  foreach (imagecache_presets() as $preset) {
+    $presets[$preset['presetname']] = $preset['presetname'];
+  }
   $form['ioai_preset'] = array(
-    '#title' => 'Image cache preset',
-    '#type' => 'textfield',
+    '#title' => 'ImageCache preset',
+    '#type' => 'select',
+    '#options' => $presets,
     '#default_value' => variable_get('ioai_preset', ''),
   );
   
