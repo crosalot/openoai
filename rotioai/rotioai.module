@@ -229,7 +229,8 @@ function rotioai_get_form($form_id, $id=NULL) {
 }
 
 function rotioai_lite_form(&$form_state, $path='') {
-  drupal_add_js(drupal_get_path('module', 'rotioai') . '/custom_box.js');
+  static $javascript_added;
+
   $form['#action'] = $path? '/'.$path: '/rotisearch';
   $options = rotioai_get_quick_options();
   if (variable_get('rotioai_quick_block', FALSE) && !empty($options)) {
@@ -250,6 +251,13 @@ function rotioai_lite_form(&$form_state, $path='') {
     '#type' => 'submit', 
     '#value' => t('Search')
   );
+
+  if (!$javascript_added) {
+    $settings['rotioai']['keywordText'] = variable_get('rotioai_keywords_text', 'Keyword(s)');
+    drupal_add_js($settings, 'setting');
+    drupal_add_js(drupal_get_path('module', 'rotioai') . '/js/placeholder.js');
+    $javascript_added = TRUE;
+  }
   return $form;
 }
 
@@ -545,7 +553,7 @@ function rotioai_result() {
 }
 
 /**
- * Implementation of hook_form().
+ * Implementation of hook_block().
  */
 function rotioai_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {

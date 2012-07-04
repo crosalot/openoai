@@ -161,16 +161,19 @@ function ioai_global_settings_form() {
     '#options' => $options, 
     '#default_value' => variable_get('sets', 0),
   );
-  $presets = array();
-  foreach (imagecache_presets() as $preset) {
-    $presets[$preset['presetname']] = $preset['presetname'];
+  
+  if (module_exists('imagecache')) {
+    $presets = array();
+    foreach (imagecache_presets() as $preset) {
+      $presets[$preset['presetname']] = $preset['presetname'];
+    }
+    $form['ioai_preset'] = array(
+      '#title' => 'ImageCache preset',
+      '#type' => 'select',
+      '#options' => $presets,
+      '#default_value' => variable_get('ioai_preset', ''),
+    );
   }
-  $form['ioai_preset'] = array(
-    '#title' => 'ImageCache preset',
-    '#type' => 'select',
-    '#options' => $presets,
-    '#default_value' => variable_get('ioai_preset', ''),
-  );
   
   $form = system_settings_form($form);
   $form['#submit'][] = 'ioai_clear_cache';
